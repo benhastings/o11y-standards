@@ -14,7 +14,7 @@ libraries that make following it the easy path.
 | `.github/workflows/ci.yml` | This repo's CI on GitHub (`.gitlab-ci.yml` is the GitLab equivalent, kept for later) |
 | `otelkit/` | Go library: provider setup, HTTP middleware, wide events, jobs |
 | `otel-web/` | TypeScript package for React front ends |
-| `dev/` | Local OTel Collector + ClickHouse stack |
+| `dev/` | Local OTel Collector + ClickHouse stack, and `rollups.sql` (metric rollups over wide events) |
 | `scripts/` | `gate-local.sh` (run the gate locally), `gate-verdict.sh` (enforce-mode check of a report), `check-pins.sh`, `update-upstream-policy.sh`, `o11y-smoke.sh` |
 
 > **Placeholders:** `gitlab.example.com` (Go module path, registry

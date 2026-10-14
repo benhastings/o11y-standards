@@ -179,6 +179,10 @@ All queries run against the ClickHouse exporter's default schema
 (`otel_logs`, `otel_traces`); wide-event attributes are in the
 `LogAttributes` map. They were checked against the `dev/` stack.
 
+Raw events cover the exporter's retention window. For longer ranges, query
+the metric rollups instead; [01](01-telemetry-standard.md#metric-aggregation)
+lists what they keep.
+
 **RED per route**
 
 ```sql

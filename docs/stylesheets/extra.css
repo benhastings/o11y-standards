@@ -1,0 +1,8 @@
+/* Attribute names are the point of most tables here: keep them on one line
+   and let columns size to their content. Wide tables scroll sideways. */
+.md-typeset table:not([class]) {
+  table-layout: auto;
+}
+.md-typeset table:not([class]) td:first-child code {
+  white-space: nowrap;
+}
