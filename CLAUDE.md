@@ -45,6 +45,10 @@ Repo layout:
   otel-web typecheck, `v*` tag pushes the tested image to
   `ghcr.io/benhastings/o11y-standards/weaver-gate`. Actions are SHA-pinned
   (`scripts/check-pins.sh`); Dependabot bumps actions only.
+- `.github/workflows/docs.yml` + `mkdocs.yml` — docs/ as a MkDocs Material
+  site (`--strict`, so broken links fail), deployed to GitHub Pages from
+  `main`. Toolchain pinned in `requirements-docs.txt`; stay on MkDocs 1.x
+  (2.0 breaks Material). `docs/index.md` is the site's landing page.
 - `.gitlab-ci.yml` — the GitLab equivalent, kept for later (build image, self-test, template
   vs. example in enforce mode, otelkit tests, otel-web typecheck, release)
 - `otelkit/` — Go library + `example/` service + `o11ysmoke` smoke test
