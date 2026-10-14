@@ -6,3 +6,4 @@ dist/
 good.json
 bad.json
 *.test
+/site/
