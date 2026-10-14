@@ -1,0 +1,11 @@
+# Actions only. Go and npm dependencies are pinned on purpose (semconv 1.43 and
+# the OTel SDK versions that ship it; see CLAUDE.md), so they're bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
