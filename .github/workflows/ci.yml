@@ -1,0 +1,157 @@
+# CI for the o11y-standards repo on GitHub. Mirrors .gitlab-ci.yml: build the
+# weaver-gate image, prove it works (self-test, plus the gate run against the
+# example service in enforce mode), test the libraries, and on a v* tag publish
+# the tested image to GHCR.
+#
+# The GitLab files (.gitlab-ci.yml, ci/weaver.gitlab-ci.yml) are kept for app
+# pipelines on GitLab; this workflow doesn't use them.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  workflows:
+    name: workflow hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Actions are pinned to commit SHAs and images to digests
+        run: ./scripts/check-pins.sh
+      - name: Audit workflows with zizmor
+        run: pipx run zizmor==1.30.1 --persona=regular --min-severity=low .github/workflows
+
+  gate:
+    name: weaver gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: otelkit/go.mod
+          cache: false   # tag runs publish; no cache-poisoning path into a release
+      - name: Build the gate image
+        run: docker build -f ci/gate-image/Dockerfile -t weaver-gate:ci .
+      - name: Self-test
+        run: |
+          mkdir -p gate-out && chmod 0777 gate-out
+          docker run --rm --entrypoint gate-self-test -v "$PWD/gate-out:/out" weaver-gate:ci /out
+      - name: Start the gate
+        run: GATE_IMAGE=weaver-gate:ci scripts/gate-local.sh start
+      - name: Smoke test the example service against the gate
+        working-directory: otelkit
+        env:
+          OTEL_EXPORTER_OTLP_ENDPOINT: "http://127.0.0.1:4317"
+          OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+          OTEL_TRACES_EXPORTER: "otlp"
+          OTEL_LOGS_EXPORTER: "otlp"
+          OTEL_METRICS_EXPORTER: "otlp"
+          OTEL_METRIC_EXPORT_INTERVAL: "1000"
+          OTEL_BSP_SCHEDULE_DELAY: "200"
+          OTEL_BLRP_SCHEDULE_DELAY: "200"
+          OTEL_TRACES_SAMPLER: "always_on"
+          OTEL_SERVICE_NAME: "example-policy-api"
+          SERVICE_NAMESPACE: "policy"
+          SERVICE_TEAM: "policy-team"
+          DEPLOYMENT_ENVIRONMENT: "ci"
+          GIT_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          export SERVICE_VERSION="0.0.0-ci.${GIT_COMMIT_SHA::8}"
+          go test -tags=o11ysmoke -run TestTelemetrySmoke -count=1 ./...
+          sleep 2   # let the last batches land
+      - name: Gate report (enforce mode)
+        run: |
+          scripts/gate-local.sh report
+          scripts/gate-verdict.sh weaver-report.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: weaver-gate-reports
+          path: |
+            gate-out/
+            weaver-report.json
+          if-no-files-found: ignore
+      - name: Save the tested image for release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: docker save weaver-gate:ci | gzip > weaver-gate.tar.gz
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: weaver-gate-image
+          path: weaver-gate.tar.gz
+          retention-days: 1
+
+  otelkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: otelkit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: otelkit/go.mod
+          cache: false   # tag runs publish; no cache-poisoning path into a release
+      - name: gofmt
+        run: test -z "$(gofmt -l . | tee /dev/stderr)"
+      - run: go vet ./...
+      - run: go vet -tags=o11ysmoke ./...
+      - run: go test -race -count=1 ./...
+
+  otel-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: otel-web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+
+  release:
+    name: publish gate image
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [workflows, gate, otelkit, otel-web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: weaver-gate-image
+      - name: Push to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          image="ghcr.io/${REPO,,}/weaver-gate:${TAG}"
+          gunzip -c weaver-gate.tar.gz | docker load
+          docker tag weaver-gate:ci "$image"
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+          docker push "$image"

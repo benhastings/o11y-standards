@@ -10,10 +10,11 @@ libraries that make following it the easy path.
 | `weaver/policies/`, `weaver/policy-data/`, `weaver/weaver.toml` | Rego rules, their tunables, and shared live-check config |
 | `ci/gate-image/` | The weaver-gate image: Weaver + registry + policies + semconv, baked in |
 | `ci/weaver.gitlab-ci.yml` | Include-able GitLab job that gates app pipelines |
+| `.github/workflows/ci.yml` | This repo's CI on GitHub (`.gitlab-ci.yml` is the GitLab equivalent, kept for later) |
 | `otelkit/` | Go library: provider setup, HTTP middleware, wide events, jobs |
 | `otel-web/` | TypeScript package for React front ends |
 | `dev/` | Local OTel Collector + ClickHouse stack |
-| `scripts/` | `gate-local.sh` (run the gate locally), `update-upstream-policy.sh`, `o11y-smoke.sh` |
+| `scripts/` | `gate-local.sh` (run the gate locally), `gate-verdict.sh` (enforce-mode check of a report), `check-pins.sh`, `update-upstream-policy.sh`, `o11y-smoke.sh` |
 
 > **Placeholders:** `gitlab.example.com` (Go module path, registry
 > `schema_url`) and `registry.gitlab.example.com` (gate image) stand in for
@@ -105,6 +106,11 @@ current OTel JS packages:
 - otelkit unit tests pass with `-race`; otel-web type-checks.
 - Spans, metrics and wide events round-trip through the `dev/` collector into
   ClickHouse, and the queries in docs/02 run against that schema.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs the same checks as
+`.gitlab-ci.yml`: gate image build and self-test, the gate against the example
+service in enforce mode, otelkit tests and the otel-web typecheck. A `v*` tag
+publishes the tested image to GHCR.
 
 Not yet run on real GitLab: the pipelines have been linted as YAML, and the
 job scripts were run locally, but not on GitLab runners. See

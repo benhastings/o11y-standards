@@ -1,6 +1,8 @@
 node_modules/
 dist/
 /weaver-report/
+/weaver-report.json
+/gate-out/
 good.json
 bad.json
 *.test
