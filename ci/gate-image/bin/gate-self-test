@@ -1,0 +1,30 @@
+#!/bin/sh
+# Self-test for the image: the registry resolves cleanly, known-good attributes
+# pass, and known-bad ones fail with the expected finding ids. Run by this
+# repo's pipeline before an image is tagged.
+set -u
+K=/opt/kfo11y/weaver
+out="${1:-.}"
+fail() { echo "SELF-TEST FAILED: $*"; exit 1; }
+
+weaver --config "$K/weaver.toml" registry check --registry "$K/registry" --future \
+  || fail "registry check"
+
+run() {
+  weaver --config "$K/weaver.toml" registry live-check \
+    --registry "$K/registry" --include-unreferenced \
+    --advice-policies "$K/policies" \
+    --advice-data "$K/policy-data/**/*.yaml" \
+    --input-source stdin --input-format text \
+    --format json --no-stream
+}
+printf 'kfo11y.service.team\nhttp.request.method\nkfo11y.outcome=success\nurl.scheme\n' | run > "$out/good.json"
+good_rc=$?
+printf 'kfo11y.password\nhttp.method\nservice.team\n' | run > "$out/bad.json"
+bad_rc=$?
+
+[ "$good_rc" -eq 0 ] || fail "good sample was rejected (see good.json)"
+[ "$bad_rc" -ne 0 ] || fail "bad sample passed (see bad.json)"
+grep -q kfo11y_sensitive_attribute "$out/bad.json" || fail "kfo11y_sensitive_attribute did not fire"
+grep -q '"deprecated"' "$out/bad.json" || fail "deprecated override did not fire"
+echo "self-test passed"

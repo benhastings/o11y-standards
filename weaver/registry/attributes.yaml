@@ -1,0 +1,202 @@
+# Org-owned attributes. Everything here lives under the `kfo11y.` namespace so it
+# can never collide with a future OpenTelemetry semantic convention.
+#
+# Before adding an attribute, search the OTel registry first:
+#   https://opentelemetry.io/docs/specs/semconv/registry/attributes/
+# If OTel defines it, reference it from the event definitions instead.
+groups:
+  - id: registry.kfo11y.service
+    type: attribute_group
+    display_name: kfo11y service ownership
+    brief: Ownership metadata. Emitted as resource attributes.
+    attributes:
+      - id: kfo11y.service.team
+        type: string
+        stability: development
+        brief: Team that owns the service. Used to route alerts and incidents.
+        note: >-
+          Replaces the earlier `service.team`, which sat inside the
+          OpenTelemetry-owned `service.*` namespace.
+        examples: ["policy-team", "identity-team", "platform-team"]
+
+  - id: registry.kfo11y.user
+    type: attribute_group
+    display_name: kfo11y caller context
+    brief: Who the work was done for, beyond the semconv `user.id`.
+    attributes:
+      - id: kfo11y.user.team.id
+        type: string
+        stability: development
+        brief: Tenant (team or customer) the caller belongs to.
+        note: >-
+          Replaces the earlier `user.team.id`. Use it to isolate one tenant's
+          impact during an incident.
+        examples: ["platform", "partner-a"]
+      - id: kfo11y.user.tier
+        type: string
+        stability: development
+        brief: Service tier of the caller's tenant.
+        examples: ["enterprise", "standard"]
+
+  - id: registry.kfo11y.work
+    type: attribute_group
+    display_name: kfo11y unit-of-work summary
+    brief: Attributes that summarize one unit of work (request, job, UI interaction).
+    attributes:
+      - id: kfo11y.duration
+        type: double
+        stability: development
+        brief: End-to-end duration of the unit of work, in seconds.
+        note: >-
+          Seconds, to match OpenTelemetry duration conventions. Replaces
+          `duration_ms`. Multiply by 1000 at query time if you want milliseconds.
+        examples: [0.142, 1.247]
+      - id: kfo11y.outcome
+        type:
+          members:
+            - id: success
+              value: "success"
+              brief: The work completed as intended.
+              stability: development
+            - id: denied
+              value: "denied"
+              brief: >-
+                The work completed and the answer was "no" (for example an
+                authorization deny). This is a correct result, not an error.
+              stability: development
+            - id: client_error
+              value: "client_error"
+              brief: The caller sent a request that could not be served (4xx).
+              stability: development
+            - id: upstream_error
+              value: "upstream_error"
+              brief: A dependency (database, cache, another API) failed.
+              stability: development
+            - id: server_error
+              value: "server_error"
+              brief: This service failed.
+              stability: development
+            - id: ui_error
+              value: "ui_error"
+              brief: Front-end only. The browser code failed without an API error.
+              stability: development
+        stability: development
+        brief: High-level result of the unit of work.
+        examples: ["success", "upstream_error"]
+
+  - id: registry.kfo11y.authz
+    type: attribute_group
+    display_name: kfo11y authorization
+    brief: Authorization decision context for the policy services.
+    attributes:
+      - id: kfo11y.authz.decision
+        type:
+          members:
+            - id: allow
+              value: "allow"
+              brief: Access granted.
+              stability: development
+            - id: deny
+              value: "deny"
+              brief: Access refused.
+              stability: development
+            - id: indeterminate
+              value: "indeterminate"
+              brief: No decision could be reached (missing policy, evaluation error).
+              stability: development
+        stability: development
+        brief: Result of the authorization evaluation.
+        examples: ["allow"]
+      - id: kfo11y.authz.policy.id
+        type: string
+        stability: development
+        brief: Identifier of the policy that produced the decision.
+        examples: ["pol-1842"]
+
+  - id: registry.kfo11y.dependencies
+    type: attribute_group
+    display_name: kfo11y dependency roll-ups
+    brief: Per-unit-of-work totals for calls to dependencies.
+    note: >-
+      Per-call detail belongs on the dependency's own CLIENT span (semconv
+      db.* attributes). These are roll-ups so one wide event answers "how much
+      of this request was spent waiting on the database?"
+    attributes:
+      - id: kfo11y.db.query.count
+        type: int
+        stability: development
+        brief: Number of database queries run during the unit of work.
+        examples: [3]
+      - id: kfo11y.db.query.duration
+        type: double
+        stability: development
+        brief: Total time spent in database queries, in seconds.
+        examples: [0.032]
+      - id: kfo11y.cache.hit
+        type: boolean
+        stability: development
+        brief: Whether the primary cache lookup was served from cache.
+        examples: [false]
+      - id: kfo11y.cache.retry.count
+        type: int
+        stability: development
+        brief: Number of cache operation retries during the unit of work.
+        examples: [2]
+      - id: kfo11y.feature_flags.enabled
+        type: string[]
+        stability: development
+        brief: Feature flags that were enabled for this unit of work.
+        examples: [["new_policy_editor"]]
+
+  - id: registry.kfo11y.job
+    type: attribute_group
+    display_name: kfo11y background jobs
+    brief: Background job identity.
+    attributes:
+      - id: kfo11y.job.name
+        type: string
+        stability: development
+        brief: Low-cardinality name of the job or message handler.
+        examples: ["policy-cache-refresh", "audit-export"]
+
+  - id: registry.kfo11y.ui
+    type: attribute_group
+    display_name: kfo11y front-end interactions
+    brief: Front-end interaction context.
+    attributes:
+      - id: kfo11y.ui.route
+        type: string
+        stability: development
+        brief: Route template of the view, not the literal URL.
+        examples: ["/policies/:policyId"]
+      - id: kfo11y.ui.action
+        type: string
+        stability: development
+        brief: Low-cardinality name of the user action.
+        examples: ["save_policy", "load_policy_list"]
+      - id: kfo11y.ui.api_call.count
+        type: int
+        stability: development
+        brief: API calls made during the interaction.
+        examples: [2]
+      - id: kfo11y.ui.api_call.error.count
+        type: int
+        stability: development
+        brief: API calls during the interaction that failed (network error or HTTP status >= 400).
+        examples: [0]
+
+  - id: registry.kfo11y.wide_event
+    type: attribute_group
+    display_name: kfo11y wide-event guardrails
+    brief: Set by the SDK helpers when an event hits the size guardrails.
+    attributes:
+      - id: kfo11y.wide_event.truncated
+        type: boolean
+        stability: development
+        brief: True when values were shortened or attributes dropped to fit the size limit.
+        examples: [true]
+      - id: kfo11y.wide_event.dropped_attributes.count
+        type: int
+        stability: development
+        brief: Attributes dropped to fit the hard size limit.
+        examples: [4]

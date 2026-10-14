@@ -1,0 +1,37 @@
+# Local telemetry stack: an OpenTelemetry Collector (contrib) exporting
+# traces, metrics and logs to ClickHouse, the same shape as the platform.
+#
+#   docker compose -f dev/docker-compose.yaml up -d
+#   # point a service at it (OTLP/gRPC :4317 or OTLP/HTTP :4318), then:
+#   docker compose -f dev/docker-compose.yaml exec clickhouse clickhouse-client -d otel
+#
+# Images are pinned; replace them with your mirror's paths if needed.
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8
+    environment:
+      CLICKHOUSE_DB: otel
+      CLICKHOUSE_USER: otel
+      CLICKHOUSE_PASSWORD: otel
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "8123:8123"   # HTTP (Grafana, curl)
+      - "9000:9000"   # native protocol
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--user", "otel", "--password", "otel", "-q", "SELECT 1"]
+      interval: 2s
+      retries: 30
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP/gRPC (Go services)
+      - "4318:4318"   # OTLP/HTTP (browsers, otel-web)
+    depends_on:
+      clickhouse:
+        condition: service_healthy

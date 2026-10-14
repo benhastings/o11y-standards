@@ -1,0 +1,25 @@
+# Weaver project config (.weaver.toml format), shared by every gate run.
+# Pass it with `weaver --config weaver/weaver.toml ...`. The gate image bakes
+# it in at /opt/kfo11y/weaver.toml. Ports, paths and output stay on the CLI.
+# Weaver 0.27 rejects unknown keys in these sections, so a typo fails loudly.
+
+# Every live-check run also needs --include-unreferenced on the command line
+# (ci/gate-image/bin). Without it, semconv attributes our registry doesn't
+# `ref` (url.scheme, server.address, ...) are missing_attribute violations,
+# and deprecated ones (http.method) report as missing, not deprecated. It
+# isn't set here because `registry check --future` rejects it as deprecated.
+
+# Using a deprecated attribute (http.method, deployment.environment, ...) fails
+# the gate.
+[[live-check.finding_level_overrides]]
+ids = ["deprecated"]
+level = "violation"
+
+# Weaver's own trace-context fields aren't attributes; don't report them.
+[[live-check.finding_filters]]
+exclude_samples = ["trace.parent_id", "trace.span_id", "trace.trace_id"]
+
+# Org attributes and many semconv ones we rely on are still `development`.
+# That's a deliberate choice in the standard, not something a team can fix.
+[[live-check.finding_filters]]
+exclude = ["not_stable"]

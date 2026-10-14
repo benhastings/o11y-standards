@@ -1,0 +1,42 @@
+# Loaded by live-check (--advice-data) as data.kfo11y.*. Edit here, not in the
+# Rego, to tune the gate.
+
+# Resource attributes the APPLICATION must set. Collector-added attributes
+# (k8s.*, cloud.*) are not checked in CI because the collector isn't in the
+# loop there; the continuous staging check (docs/03) covers them.
+required_resource_attributes:
+  - service.name
+  - service.namespace
+  - service.version
+  - service.instance.id
+  - deployment.environment.name
+  - kfo11y.service.team
+  - vcs.ref.head.revision
+
+# Allowed deployment.environment.name values. The first four are the
+# OpenTelemetry well-known values (stable since semconv 1.41). Prefer them;
+# add a local value only when none of them fits.
+allowed_environments:
+  - production
+  - staging
+  - test
+  - development
+  - ci
+
+# Event names that get the wide-event size guardrail.
+wide_event_names:
+  - kfo11y.request.summary
+  - kfo11y.job.summary
+  - kfo11y.ui.interaction.summary
+
+wide_event:
+  target_bytes: 8192
+  hard_limit_bytes: 16384
+
+# Span events use the deprecated Span Event API. Starts as "improvement"
+# (reported, not blocking). Flip to "violation" on the date set in docs/02.
+span_event_level: improvement
+
+# Unnamed log records (no EventName). Free-text logs are discouraged but not
+# blocked yet.
+unnamed_log_level: improvement

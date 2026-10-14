@@ -1,0 +1,129 @@
+# Weaver telemetry gate for application pipelines.
+#
+# Usage in an app's .gitlab-ci.yml:
+#
+#   include:
+#     - project: sre/o11y-standards
+#       ref: v0.1.0
+#       file: ci/weaver.gitlab-ci.yml
+#
+#   variables:
+#     O11Y_SERVICE_NAME: policy-api
+#     O11Y_SERVICE_NAMESPACE: policy
+#     O11Y_SERVICE_TEAM: policy-team
+#
+# How it works: the weaver-gate image (built by this repo, ci/gate-image) runs
+# as a CI service. On the Kubernetes executor that's a sidecar container in the
+# job pod, reachable on localhost under the alias `weaver`. The job runs your
+# smoke test with OTLP pointed at it, asks Weaver for its report over the admin
+# port, and fails if the report has violations. Weaver, semconv and the
+# policies are all baked into the image; nothing is downloaded at job time.
+# See docs/03-weaver-gate.md.
+
+variables:
+  # Keep this tag equal to the include `ref` above.
+  O11Y_GATE_IMAGE: "registry.gitlab.example.com/sre/o11y-standards/weaver-gate:v0.1.0"
+  O11Y_JOB_IMAGE: "golang:1.26"           # your build image; needs curl
+  O11Y_GATE_MODE: "report"                # report | enforce
+  O11Y_SMOKE_MODE: "go-test"              # go-test | process
+  O11Y_GO_TEST_ARGS: "-tags=o11ysmoke -run TestTelemetrySmoke -count=1 ./..."
+  O11Y_START_CMD: ""                      # process mode: command that starts the service
+  O11Y_SMOKE_ROUTES: "o11y-smoke.routes"  # process mode: routes file (see docs/03)
+  O11Y_APP_URL: "http://127.0.0.1:8080"   # process mode
+  O11Y_READY_PATH: "/healthz"             # process mode
+  O11Y_SERVICE_NAME: ""
+  O11Y_SERVICE_NAMESPACE: ""
+  O11Y_SERVICE_TEAM: ""
+
+o11y:weaver-live-check:
+  stage: test
+  image: $O11Y_JOB_IMAGE
+  services:
+    - name: $O11Y_GATE_IMAGE
+      alias: weaver
+  variables:
+    # Point the app's OTel SDK at the Weaver sidecar. otelkit reads these via autoexport.
+    OTEL_EXPORTER_OTLP_ENDPOINT: "http://weaver:4317"
+    OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+    OTEL_TRACES_EXPORTER: "otlp"
+    OTEL_LOGS_EXPORTER: "otlp"
+    OTEL_METRICS_EXPORTER: "otlp"
+    OTEL_METRIC_EXPORT_INTERVAL: "1000"
+    OTEL_BSP_SCHEDULE_DELAY: "200"
+    OTEL_BLRP_SCHEDULE_DELAY: "200"
+    OTEL_TRACES_SAMPLER: "always_on"
+    DEPLOYMENT_ENVIRONMENT: "ci"
+    GIT_COMMIT_SHA: "$CI_COMMIT_SHA"
+    WEAVER_ADMIN: "http://weaver:4320"
+  rules:
+    - if: '$O11Y_GATE_MODE == "enforce"'
+      allow_failure: false
+    - when: on_success
+      allow_failure: true
+  script:
+    - |
+      set -uo pipefail
+      export OTEL_SERVICE_NAME="${O11Y_SERVICE_NAME:-$CI_PROJECT_NAME}"
+      export SERVICE_NAMESPACE="$O11Y_SERVICE_NAMESPACE"
+      export SERVICE_TEAM="$O11Y_SERVICE_TEAM"
+      export SERVICE_VERSION="${CI_COMMIT_TAG:-0.0.0-ci.${CI_COMMIT_SHORT_SHA}}"
+
+      ready=""
+      for _ in $(seq 1 60); do
+        curl -fs -o /dev/null "$WEAVER_ADMIN/health" && { ready=1; break; }
+        sleep 1
+      done
+      [ -n "$ready" ] || { echo "Weaver sidecar never became healthy at $WEAVER_ADMIN"; exit 2; }
+
+      SMOKE_RC=0
+      case "$O11Y_SMOKE_MODE" in
+        go-test)
+          go test $O11Y_GO_TEST_ARGS || SMOKE_RC=$?
+          ;;
+        process)
+          sh -c "$O11Y_START_CMD" &
+          APP_PID=$!
+          for _ in $(seq 1 60); do
+            curl -fs -o /dev/null "${O11Y_APP_URL}${O11Y_READY_PATH}" && break
+            sleep 1
+          done
+          # Routes file: METHOD PATH EXPECTED_STATUS [Header:Value ...]
+          while read -r method path want rest; do
+            case "${method:-#}" in \#*) continue ;; esac
+            set -- ; for h in $rest; do set -- "$@" -H "${h%%:*}: ${h#*:}"; done
+            got="$(curl -s -o /dev/null -w '%{http_code}' -X "$method" "$@" "${O11Y_APP_URL}${path}")"
+            if [ "$got" = "$want" ]; then echo "ok    $method $path -> $got"
+            else echo "FAIL  $method $path -> $got (want $want)"; SMOKE_RC=1; fi
+          done < "$O11Y_SMOKE_ROUTES"
+          kill -TERM "$APP_PID"      # otelkit flushes on SIGTERM
+          wait "$APP_PID" || true
+          ;;
+        *)
+          echo "Unknown O11Y_SMOKE_MODE '$O11Y_SMOKE_MODE'"; SMOKE_RC=2 ;;
+      esac
+
+      sleep 2                          # let the last batches land
+      curl -fsS -X POST "$WEAVER_ADMIN/stop" >/dev/null
+      curl -fsS "$WEAVER_ADMIN/report" -o weaver-report.json
+      curl -fsS -X POST "$WEAVER_ADMIN/shutdown" >/dev/null || true
+
+      echo "---- Weaver findings summary ----"
+      sed -n '/"advice_level_counts"/,/}/p' weaver-report.json
+      sed -n '/"advice_type_counts"/,/}/p' weaver-report.json
+      violations="$(sed -n '/"advice_level_counts"/,/}/p' weaver-report.json \
+        | grep -o '"violation": *[0-9]*' | grep -o '[0-9]*$' || true)"
+
+      if [ "$SMOKE_RC" -ne 0 ]; then
+        echo "Smoke test failed (exit $SMOKE_RC). Fix the test before reading the telemetry findings."
+        exit "$SMOKE_RC"
+      fi
+      if [ "${violations:-0}" -gt 0 ]; then
+        echo "Weaver reported $violations violation(s). Open weaver-report.json; docs/03-weaver-gate.md lists each finding id and its fix."
+        exit 1
+      fi
+      echo "No violations."
+  artifacts:
+    when: always
+    expire_in: 2 weeks
+    paths:
+      - weaver-report.json

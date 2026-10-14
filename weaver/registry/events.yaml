@@ -1,0 +1,111 @@
+# Wide-event schemas. Each is a named, log-based event (an OTLP LogRecord with
+# EventName set), correlated to the active span through context. The event name
+# replaces the old `main: true` marker; trace_id/span_id are carried in the
+# log record's native trace-context fields, not as attributes.
+#
+# Resource attributes (service.*, deployment.environment.name, k8s.*, cloud.*,
+# kfo11y.service.team, vcs.ref.head.revision) are NOT repeated on the event.
+# They arrive once per batch on the resource and are queryable alongside it.
+groups:
+  - id: event.kfo11y.request.summary
+    type: event
+    name: kfo11y.request.summary
+    stability: development
+    brief: One canonical record per inbound HTTP request.
+    note: >-
+      Emitted exactly once, when the request finishes, by the otelkit `wide`
+      HTTP middleware (Go). Target size 8 KiB, hard limit 16 KiB.
+    attributes:
+      - ref: http.request.method
+        requirement_level: required
+      - ref: http.route
+        requirement_level:
+          conditionally_required: If the request matched a route.
+      - ref: http.response.status_code
+        requirement_level:
+          conditionally_required: If a response was sent.
+      - ref: kfo11y.duration
+        requirement_level: required
+      - ref: kfo11y.outcome
+        requirement_level: required
+      - ref: error.type
+        requirement_level:
+          conditionally_required: If the outcome is upstream_error or server_error.
+      - ref: user.id
+        requirement_level:
+          conditionally_required: Once the caller has been authenticated.
+      - ref: kfo11y.user.team.id
+        requirement_level:
+          conditionally_required: Once the caller has been authenticated.
+      - ref: kfo11y.user.tier
+        requirement_level: recommended
+      - ref: kfo11y.authz.decision
+        requirement_level:
+          conditionally_required: If the request evaluated an authorization decision.
+      - ref: kfo11y.authz.policy.id
+        requirement_level: recommended
+      - ref: kfo11y.db.query.count
+        requirement_level: recommended
+      - ref: kfo11y.db.query.duration
+        requirement_level: recommended
+      - ref: kfo11y.cache.hit
+        requirement_level: recommended
+      - ref: kfo11y.cache.retry.count
+        requirement_level: recommended
+      - ref: kfo11y.feature_flags.enabled
+        requirement_level: recommended
+      - ref: kfo11y.wide_event.truncated
+        requirement_level: opt_in
+      - ref: kfo11y.wide_event.dropped_attributes.count
+        requirement_level: opt_in
+
+  - id: event.kfo11y.job.summary
+    type: event
+    name: kfo11y.job.summary
+    stability: development
+    brief: One canonical record per background job run or message handled.
+    attributes:
+      - ref: kfo11y.job.name
+        requirement_level: required
+      - ref: kfo11y.duration
+        requirement_level: required
+      - ref: kfo11y.outcome
+        requirement_level: required
+      - ref: error.type
+        requirement_level:
+          conditionally_required: If the outcome is upstream_error or server_error.
+      - ref: kfo11y.db.query.count
+        requirement_level: recommended
+      - ref: kfo11y.db.query.duration
+        requirement_level: recommended
+      - ref: kfo11y.wide_event.truncated
+        requirement_level: opt_in
+      - ref: kfo11y.wide_event.dropped_attributes.count
+        requirement_level: opt_in
+
+  - id: event.kfo11y.ui.interaction.summary
+    type: event
+    name: kfo11y.ui.interaction.summary
+    stability: development
+    brief: One canonical record per user interaction in a React front end.
+    attributes:
+      - ref: kfo11y.ui.action
+        requirement_level: required
+      - ref: kfo11y.ui.route
+        requirement_level: required
+      - ref: kfo11y.duration
+        requirement_level: required
+      - ref: kfo11y.outcome
+        requirement_level: required
+      - ref: kfo11y.ui.api_call.count
+        requirement_level: required
+      - ref: kfo11y.ui.api_call.error.count
+        requirement_level: required
+      - ref: error.type
+        requirement_level:
+          conditionally_required: If the outcome is not success or denied.
+      - ref: user.id
+        requirement_level:
+          conditionally_required: Once the user has signed in.
+      - ref: session.id
+        requirement_level: recommended
