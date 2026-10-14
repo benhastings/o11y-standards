@@ -1,0 +1,52 @@
+# Docs site for GitHub Pages: `zensical build --strict` renders docs/ into site/.
+# Locally: pip install -r requirements-docs.txt && zensical serve
+[project]
+site_name = "o11y-standards"
+site_description = "Telemetry standard, Weaver gate, otelkit and otel-web"
+site_url = "https://benhastings.github.io/o11y-standards/"
+repo_url = "https://github.com/benhastings/o11y-standards"
+repo_name = "benhastings/o11y-standards"
+edit_uri = "edit/main/docs/"
+docs_dir = "docs"
+nav = [
+  { "Home" = "index.md" },
+  { "00 Team notes" = "00-team-notes.md" },
+  { "01 Telemetry standard" = "01-telemetry-standard.md" },
+  { "02 Wide events" = "02-logging-standard-wide-events.md" },
+  { "03 Weaver gate" = "03-weaver-gate.md" },
+  { "04 Go guide" = "04-go-guide.md" },
+  { "05 Front-end guide" = "05-frontend-guide.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.instant",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/moon"
+toggle.name = "Dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/sun"
+toggle.name = "Light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+tables = {}
+toc.permalink = true
+pymdownx.highlight = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
