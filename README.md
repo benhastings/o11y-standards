@@ -5,7 +5,7 @@ libraries that make following it the easy path.
 
 | Path | What it is |
 |---|---|
-| `docs/` | The standard and developer guides (start with 00, then 01 and 02); `mkdocs.yml` renders them as a site |
+| `docs/` | The standard and developer guides (start with 00, then 01 and 02); `zensical.toml` renders them as a site |
 | `weaver/registry/` | Org telemetry registry: `kfo11y.*` attributes and wide-event schemas, on top of OTel semconv v1.43.0 |
 | `weaver/policies/`, `weaver/policy-data/`, `weaver/weaver.toml` | Rego rules, their tunables, and shared live-check config |
 | `ci/gate-image/` | The weaver-gate image: Weaver + registry + policies + semconv, baked in |
