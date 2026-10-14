@@ -16,7 +16,13 @@ case "${1:-}" in
   start)
     docker rm -f "$name" >/dev/null 2>&1 || true
     docker run -d --name "$name" -p 4317:4317 -p 4320:4320 "$image" >/dev/null
-    for _ in $(seq 1 30); do curl -fs -o /dev/null "$admin/health" && break; sleep 1; done
+    ready=""
+    for _ in $(seq 1 30); do curl -fs -o /dev/null "$admin/health" && { ready=1; break; }; sleep 1; done
+    if [ -z "$ready" ]; then
+      echo "Weaver gate never became healthy at $admin" >&2
+      docker logs "$name" >&2 || true
+      exit 1
+    fi
     cat <<MSG
 Weaver gate is up. Point your service at it:
   export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317 OTEL_EXPORTER_OTLP_PROTOCOL=grpc

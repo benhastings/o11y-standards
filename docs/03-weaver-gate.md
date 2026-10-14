@@ -160,6 +160,7 @@ SERVICE_VERSION=0.0.0-dev \
 
 # terminal 1 — collect the verdict
 scripts/gate-local.sh report    # prints counts, writes weaver-report.json
+scripts/gate-verdict.sh         # optional: fail like enforce mode would (needs jq)
 ```
 
 You can also point a running service at it and click through the UI before

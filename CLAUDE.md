@@ -27,8 +27,9 @@ Environment:
   customer.
 - **Source lives on GitHub** (`benhastings/o11y-standards`, private). Only the
   Weaver gate CI (`.gitlab-ci.yml`, `ci/weaver.gitlab-ci.yml`) is
-  GitLab-specific; it's kept here but doesn't run on GitHub and is untested
-  until we pick a way to exercise it. The gate image (`ci/gate-image/`),
+  GitLab-specific; it's kept (don't delete it) but doesn't run on GitHub and
+  is untested until we pick a way to exercise it. GitHub Actions runs the
+  same checks. The gate image (`ci/gate-image/`),
   libraries, docs and `dev/` stack are host-independent.
 
 Repo layout:
@@ -38,7 +39,13 @@ Repo layout:
   policy data, `weaver.toml` (.weaver.toml format)
 - `ci/gate-image/` — Dockerfile + `bin/gate-serve`, `bin/gate-self-test`
 - `ci/weaver.gitlab-ci.yml` — include-able job; gate image as a CI service
-- `.gitlab-ci.yml` — this repo's pipeline (build image, self-test, template
+- `.github/workflows/ci.yml` — this repo's CI on GitHub: pin check + zizmor,
+  gate image build + self-test + example in enforce mode (via
+  `scripts/gate-local.sh` and `scripts/gate-verdict.sh`), otelkit tests,
+  otel-web typecheck, `v*` tag pushes the tested image to
+  `ghcr.io/benhastings/o11y-standards/weaver-gate`. Actions are SHA-pinned
+  (`scripts/check-pins.sh`); Dependabot bumps actions only.
+- `.gitlab-ci.yml` — the GitLab equivalent, kept for later (build image, self-test, template
   vs. example in enforce mode, otelkit tests, otel-web typecheck, release)
 - `otelkit/` — Go library + `example/` service + `o11ysmoke` smoke test
 - `otel-web/` — TypeScript package for React front ends
