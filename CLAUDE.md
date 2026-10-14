@@ -24,7 +24,8 @@ Environment:
   asking.
 - **otelkit replaces o11yflow.** Breaking with o11yflow is fine.
 - Keep docs and examples generic: no references to the deployment sector or
-  customer.
+  customer, and no real team or service names. Examples use `policy-api`,
+  `policy-team`, `us-east-1`.
 - **Source lives on GitHub** (`benhastings/o11y-standards`, private). Only the
   Weaver gate CI (`.gitlab-ci.yml`, `ci/weaver.gitlab-ci.yml`) is
   GitLab-specific; it's kept (don't delete it) but doesn't run on GitHub and
@@ -53,7 +54,8 @@ Repo layout:
   vs. example in enforce mode, otelkit tests, otel-web typecheck, release)
 - `otelkit/` — Go library + `example/` service + `o11ysmoke` smoke test
 - `otel-web/` — TypeScript package for React front ends
-- `dev/` — collector + ClickHouse docker compose
+- `dev/` — collector + ClickHouse docker compose; `rollups.sql` (metric
+  rollups over wide events, see docs/01 "Metric aggregation")
 - `docs/` — 00 team notes, 01 metadata standard, 02 wide events,
   03 gate, 04 Go guide, 05 front-end guide
 
@@ -110,6 +112,9 @@ Repo layout:
   `kfo11y_span_event_deprecated`.
 - otelkit `go vet` + `go test -race` green; otel-web `tsc --noEmit` green.
 - ClickHouse round trip via `dev/`; queries in docs/02 and docs/03 run.
+- `dev/rollups.sql` loads (and reloads) cleanly; rollup totals match the raw
+  events for request, tenant, job and UI events; backfill via INSERT SELECT
+  works; the docs/01 rollup queries run.
 
 ## Still unverified
 
@@ -120,7 +125,8 @@ Repo layout:
 ## Conventions
 
 - Keep attribute names in `otelkit/attrs` and `otel-web/src/attrs.ts` in sync
-  with `weaver/registry`; the registry is the source of truth.
+  with `weaver/registry`; the registry is the source of truth. docs/01's
+  wide-event table and metric classes must match it too.
 - Mermaid for diagrams in markdown.
 - Don't add attributes outside the registry; propose registry changes instead.
 - Commit after each green step.

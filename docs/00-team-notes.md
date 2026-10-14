@@ -69,6 +69,7 @@ images. The design keeps internet access to one place:
 | **Span-event cutover date** | Three sprints after adoption, then `span_event_level` → `violation` and wide events only. Date TBD. | SRE lead with tech leads |
 | **Browser telemetry delivery and auth** | Tabled. otel-web posts OTLP/HTTP to a collector (`/otlp` behind the UI's ingress, or `dev/` locally). We may need a small ingest service in front of the collector for auth, rate limits and size caps. | SRE + platform |
 | **Non-standard environment names** | `deployment.environment.name` allows `production`, `staging`, `test`, `development`, `ci`. Add any others your clusters use to `weaver/policy-data/kfo11y.yaml`. | Each team, via MR |
+| **Telemetry retention** | Raw spans and wide events keep the exporter's short TTL; the metric rollups in `dev/rollups.sql` keep 13 months. Both numbers are placeholders. | SRE + platform |
 | **Runner capabilities** | The Kubernetes executor resolves service aliases (`weaver`) to localhost, and rootless buildah (`vfs`, `chroot`) works on our runners. | Confirm on first pipeline |
 
 ## To confirm on the first real pipeline
@@ -97,6 +98,16 @@ GitLab runners:
 - **Front-end gate:** a collector in the CI job to bridge OTLP/HTTP to
   Weaver's gRPC listener, with Playwright driving the UI.
 - **Continuous live-check in staging**, findings exported to ClickHouse.
+- **Rollups on the platform ClickHouse.** Apply `dev/rollups.sql` (with the
+  agreed TTLs) and backfill from the raw events still in retention.
+- **Drop `server.address` / `server.port` from otelkit's HTTP metrics.**
+  otelhttp adds them, but semconv makes them opt-in for metrics because they
+  come from the Host header. A metric view in otelkit, or the collector, can
+  remove them.
+- **UI event gaps in the registry.** `kfo11y.ui.interaction.summary` doesn't
+  reference `kfo11y.user.team.id`, so front-end tenant impact can't be
+  queried, or `kfo11y.wide_event.truncated`, which otel-web already sets.
+  Propose adding both.
 - **Semconv 1.44** once both SDKs ship constants for it.
 - **o11yflow retirement:** list the services on it, migrate each to otelkit,
   archive the repo.

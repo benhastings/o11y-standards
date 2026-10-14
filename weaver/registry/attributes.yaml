@@ -17,7 +17,7 @@ groups:
         note: >-
           Replaces the earlier `service.team`, which sat inside the
           OpenTelemetry-owned `service.*` namespace.
-        examples: ["halo", "kubernators", "vanguard"]
+        examples: ["policy-team", "identity-team", "platform-team"]
 
   - id: registry.kfo11y.user
     type: attribute_group

@@ -104,9 +104,9 @@ The fix is to wrap the work in `wide.Run`, or make the call inside a handler.
        file: ci/weaver.gitlab-ci.yml
 
    variables:
-     O11Y_SERVICE_NAME: prs
+     O11Y_SERVICE_NAME: policy-api
      O11Y_SERVICE_NAMESPACE: policy
-     O11Y_SERVICE_TEAM: halo
+     O11Y_SERVICE_TEAM: policy-team
      O11Y_JOB_IMAGE: golang:1.26        # your build image; it needs curl
    ```
 
@@ -154,7 +154,7 @@ scripts/gate-local.sh start
 
 # terminal 2 — in your service
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317 OTEL_EXPORTER_OTLP_PROTOCOL=grpc \
-DEPLOYMENT_ENVIRONMENT=development SERVICE_TEAM=halo SERVICE_NAMESPACE=policy \
+DEPLOYMENT_ENVIRONMENT=development SERVICE_TEAM=policy-team SERVICE_NAMESPACE=policy \
 SERVICE_VERSION=0.0.0-dev \
   go test -tags=o11ysmoke -run TestTelemetrySmoke ./...
 

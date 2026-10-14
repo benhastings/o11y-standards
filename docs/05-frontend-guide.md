@@ -21,7 +21,7 @@ initTelemetry({
   serviceName: 'policy-ui',
   serviceNamespace: 'policy',
   serviceVersion: import.meta.env.VITE_APP_VERSION,
-  team: 'halo',
+  team: 'policy-team',
   environment: import.meta.env.VITE_DEPLOYMENT_ENVIRONMENT, // production | staging | ...
   gitSha: import.meta.env.VITE_GIT_SHA,
   propagateTo: [/^https:\/\/api\.policy\.example\.com\//],

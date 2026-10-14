@@ -60,7 +60,7 @@ o11y:weaver-live-check:
     O11Y_GATE_MODE: "enforce"
     O11Y_SERVICE_NAME: "example-policy-api"
     O11Y_SERVICE_NAMESPACE: "policy"
-    O11Y_SERVICE_TEAM: "halo"
+    O11Y_SERVICE_TEAM: "policy-team"
   before_script:
     - cd otelkit
 

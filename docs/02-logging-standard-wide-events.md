@@ -130,10 +130,10 @@ As the collector receives it (simplified OTLP):
 ```json
 {
   "resource": {
-    "service.name": "prs", "service.namespace": "policy", "service.version": "3.4.1",
-    "kfo11y.service.team": "halo", "deployment.environment.name": "production",
-    "vcs.ref.head.revision": "8f7a2b3c", "k8s.pod.name": "prs-7f8g9-2x5",
-    "cloud.availability_zone": "us-gov-west-1a"
+    "service.name": "policy-api", "service.namespace": "policy", "service.version": "3.4.1",
+    "kfo11y.service.team": "policy-team", "deployment.environment.name": "production",
+    "vcs.ref.head.revision": "8f7a2b3c", "k8s.pod.name": "policy-api-7f8g9-2x5",
+    "cloud.availability_zone": "us-east-1a"
   },
   "event_name": "kfo11y.request.summary",
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
@@ -178,6 +178,10 @@ deny call `SetOutcome(denied)` so a correct "no" isn't counted as an error.
 All queries run against the ClickHouse exporter's default schema
 (`otel_logs`, `otel_traces`); wide-event attributes are in the
 `LogAttributes` map. They were checked against the `dev/` stack.
+
+Raw events cover the exporter's retention window. For longer ranges, query
+the metric rollups instead; [01](01-telemetry-standard.md#metric-aggregation)
+lists what they keep.
 
 **RED per route**
 

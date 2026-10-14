@@ -24,7 +24,7 @@ func main() {
 	shutdown, err := otelkit.Setup(ctx, otelkit.Config{
 		ServiceName:      "example-policy-api",
 		ServiceNamespace: "policy",
-		Team:             "halo",
+		Team:             "policy-team",
 	})
 	if err != nil {
 		log.Fatalf("telemetry setup: %v", err)

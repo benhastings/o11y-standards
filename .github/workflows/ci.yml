@@ -64,7 +64,7 @@ jobs:
           OTEL_TRACES_SAMPLER: "always_on"
           OTEL_SERVICE_NAME: "example-policy-api"
           SERVICE_NAMESPACE: "policy"
-          SERVICE_TEAM: "halo"
+          SERVICE_TEAM: "policy-team"
           DEPLOYMENT_ENVIRONMENT: "ci"
           GIT_COMMIT_SHA: ${{ github.sha }}
         run: |
