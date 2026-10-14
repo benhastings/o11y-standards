@@ -1,0 +1,95 @@
+# Pipeline for the o11y-standards repo itself. Builds the weaver-gate image,
+# proves it works (self-test, plus the gate template run against the example
+# service), tests the libraries, and on a tag publishes the image that app
+# pipelines pull.
+#
+# Every image is a variable so it can point at a registry mirror.
+stages: [build, test, release]
+
+variables:
+  GATE_IMAGE: "$CI_REGISTRY_IMAGE/weaver-gate"
+  WEAVER_IMAGE: "otel/weaver:v0.27.0@sha256:3049b4079049d4abb1b5632f511ada2c33505a1c60f3f8535e93f87f0696f056"
+  BUILDAH_IMAGE: "quay.io/buildah/stable:v1.41"
+  GO_IMAGE: "golang:1.26"
+  NODE_IMAGE: "node:24"
+  # Optional: a mirrored copy of the semconv release archive, if the build
+  # runner can't reach GitHub. The Dockerfile verifies its checksum either way.
+  SEMCONV_URL: ""
+
+# The gate template, run against this repo's example service in enforce mode.
+include:
+  - local: ci/weaver.gitlab-ci.yml
+
+.buildah:
+  image: $BUILDAH_IMAGE
+  variables:
+    # Rootless-friendly settings for the Kubernetes executor (no privileged pod).
+    STORAGE_DRIVER: vfs
+    BUILDAH_ISOLATION: chroot
+  before_script:
+    - buildah login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+
+gate-image:build:
+  extends: .buildah
+  stage: build
+  script:
+    - >-
+      buildah build -f ci/gate-image/Dockerfile
+      --build-arg WEAVER_IMAGE="$WEAVER_IMAGE"
+      ${SEMCONV_URL:+--build-arg SEMCONV_URL="$SEMCONV_URL"}
+      -t "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA" .
+    - buildah push "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA"
+
+gate-image:self-test:
+  stage: test
+  needs: [gate-image:build]
+  image:
+    name: "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA"
+    entrypoint: [""]
+  script:
+    - gate-self-test .
+  artifacts:
+    when: always
+    paths: [good.json, bad.json]
+
+o11y:weaver-live-check:
+  needs: [gate-image:build]
+  variables:
+    O11Y_GATE_IMAGE: "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA"
+    O11Y_JOB_IMAGE: "$GO_IMAGE"
+    O11Y_GATE_MODE: "enforce"
+    O11Y_SERVICE_NAME: "example-policy-api"
+    O11Y_SERVICE_NAMESPACE: "policy"
+    O11Y_SERVICE_TEAM: "halo"
+  before_script:
+    - cd otelkit
+
+otelkit:test:
+  stage: test
+  needs: []
+  image: $GO_IMAGE
+  script:
+    - cd otelkit
+    - test -z "$(gofmt -l .)" || { gofmt -l .; echo "run gofmt -w"; exit 1; }
+    - go vet ./...
+    - go vet -tags=o11ysmoke ./...
+    - go test -race -count=1 ./...
+
+otel-web:typecheck:
+  stage: test
+  needs: []
+  image: $NODE_IMAGE
+  script:
+    - cd otel-web
+    - npm ci --no-audit --no-fund
+    - npm run typecheck
+
+gate-image:release:
+  extends: .buildah
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - buildah pull "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - buildah tag "$GATE_IMAGE:$CI_COMMIT_SHORT_SHA" "$GATE_IMAGE:$CI_COMMIT_TAG"
+    - buildah push "$GATE_IMAGE:$CI_COMMIT_TAG"

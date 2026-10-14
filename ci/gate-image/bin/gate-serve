@@ -1,0 +1,17 @@
+#!/bin/sh
+# Runs live-check as an OTLP/gRPC receiver. The report is served at
+# GET :4320/report after POST :4320/stop; POST :4320/shutdown ends it.
+# Extra arguments are passed through to `weaver registry live-check`.
+set -eu
+K=/opt/kfo11y/weaver
+exec weaver --config "$K/weaver.toml" registry live-check \
+  --registry "$K/registry" --include-unreferenced \
+  --advice-policies "$K/policies" \
+  --advice-data "$K/policy-data/**/*.yaml" \
+  --input-source otlp \
+  --otlp-grpc-address "${GATE_LISTEN_ADDRESS:-0.0.0.0}" \
+  --otlp-grpc-port "${GATE_GRPC_PORT:-4317}" \
+  --admin-port "${GATE_ADMIN_PORT:-4320}" \
+  --format json \
+  --output http \
+  "$@"

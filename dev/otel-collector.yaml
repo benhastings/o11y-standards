@@ -1,0 +1,52 @@
+# Dev collector: OTLP in, ClickHouse out. Mirrors the pipeline in docs/02
+# ("Collector side") minus the Kubernetes processors.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        # Lets a React dev server send otel-web telemetry straight here.
+        cors:
+          allowed_origins: ["http://localhost:*", "http://127.0.0.1:*"]
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 20
+  transform/redact:
+    log_statements:
+      - context: log
+        statements:
+          # Backstop only; the gate blocks these at the source.
+          - delete_matching_keys(attributes, "(?i).*(password|secret|token|authorization|cookie).*")
+  batch:
+    timeout: 1s
+
+exporters:
+  clickhouse:
+    endpoint: tcp://clickhouse:9000?dial_timeout=10s
+    database: otel
+    username: otel
+    password: otel
+    create_schema: true
+    ttl: 72h
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [clickhouse]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/redact, batch]
+      exporters: [clickhouse, debug]

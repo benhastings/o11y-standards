@@ -1,0 +1,21 @@
+# Org telemetry registry. Extends the OpenTelemetry semantic conventions.
+#
+# The semconv dependency is pinned to v1.43.0 because that is the newest
+# version both the Go SDK (semconv/v1.43.0 package) and opentelemetry-js ship
+# constants for. Move it forward only when both SDKs have caught up, and bump
+# this registry's version in the same MR.
+#
+# file_format: Weaver 0.27 reads manifest.yaml as a v2 manifest and reports
+# the old registry_manifest.yaml name as legacy. The attribute and event files
+# stay in the v1 format.
+#
+# registry_path: the gate image (ci/gate-image) rewrites this to its baked-in
+# copy of semconv, so CI never downloads it. Local runs fetch the archive.
+file_format: definition_manifest/2.0
+description: >-
+  kfo11y SRE telemetry registry: org-owned attributes and the wide-event
+  schemas (kfo11y.request.summary, kfo11y.job.summary, kfo11y.ui.interaction.summary).
+schema_url: https://gitlab.example.com/sre/o11y-standards/schemas/0.1.0
+dependencies:
+  - schema_url: https://opentelemetry.io/schemas/1.43.0
+    registry_path: https://github.com/open-telemetry/semantic-conventions/archive/refs/tags/v1.43.0.tar.gz[semantic-conventions-1.43.0/model]
