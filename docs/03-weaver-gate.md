@@ -99,9 +99,7 @@ The fix is to wrap the work in `wide.Run`, or make the call inside a handler.
 
    ```yaml
    include:
-     - project: sre/o11y-standards
-       ref: v0.1.0
-       file: ci/weaver.gitlab-ci.yml
+     - remote: https://raw.githubusercontent.com/benhastings/o11y-standards/v0.1.0/ci/weaver.gitlab-ci.yml
 
    variables:
      O11Y_SERVICE_NAME: policy-api
@@ -110,9 +108,10 @@ The fix is to wrap the work in `wide.Run`, or make the call inside a handler.
      O11Y_JOB_IMAGE: golang:1.26        # your build image; it needs curl
    ```
 
-   Keep the include `ref` and the tag in `O11Y_GATE_IMAGE` the same. The
-   template's default image path uses the placeholder registry host; see
-   [00](00-team-notes.md).
+   Keep the version in the include URL and the tag in `O11Y_GATE_IMAGE` the
+   same. The template pulls the gate image from
+   `ghcr.io/benhastings/o11y-standards/weaver-gate`; if runners can't reach
+   GHCR, mirror it and override `O11Y_GATE_IMAGE`.
 4. **Dependencies.** If the smoke test needs MariaDB, Postgres, or Valkey,
    add them as more `services:` on `o11y:weaver-live-check` (keep the
    `weaver` entry). Prefer a smoke test that stubs them, at least at first.

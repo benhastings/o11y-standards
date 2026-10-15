@@ -22,11 +22,11 @@ import (
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/trace"
 
-	"gitlab.example.com/sre/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
 
 const (
-	scopeName    = "gitlab.example.com/sre/otelkit/wide"
+	scopeName    = "github.com/benhastings/o11y-standards/otelkit/wide"
 	scopeVersion = "0.1.0"
 )
 

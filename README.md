@@ -17,10 +17,12 @@ libraries that make following it the easy path.
 | `dev/` | Local OTel Collector + ClickHouse stack, and `rollups.sql` (metric rollups over wide events) |
 | `scripts/` | `gate-local.sh` (run the gate locally), `gate-verdict.sh` (enforce-mode check of a report), `check-pins.sh`, `update-upstream-policy.sh`, `o11y-smoke.sh` |
 
-> **Placeholders:** `gitlab.example.com` (Go module path, registry
-> `schema_url`) and `registry.gitlab.example.com` (gate image) stand in for
-> the real GitLab host. Replace them before the first tag. See
-> [docs/00-team-notes.md](docs/00-team-notes.md).
+> **Where things live:** the Go module is
+> `github.com/benhastings/o11y-standards/otelkit` (tags `otelkit/vX.Y.Z`), the
+> gate image is `ghcr.io/benhastings/o11y-standards/weaver-gate` (tags
+> `vX.Y.Z`), and the docs are at
+> <https://benhastings.github.io/o11y-standards/>. otel-web isn't published
+> yet; see [docs/00-team-notes.md](docs/00-team-notes.md).
 
 ## How the pieces fit
 
@@ -75,7 +77,7 @@ run the gate locally instead, see [docs/03](docs/03-weaver-gate.md#running-it-lo
 
 ```mermaid
 flowchart TB
-    p0["<b>Phase 0 — Adopt the standard</b><br/>Publish docs 01/02<br/>Set real GitLab host, tag v0.1.0<br/>Brief tech leads on the span-event deprecation"]
+    p0["<b>Phase 0 — Adopt the standard</b><br/>Publish docs 01/02<br/>Tag v0.1.0 (done)<br/>Brief tech leads on the span-event deprecation"]
     p1["<b>Phase 1 — Gate in report mode</b><br/>weaver-gate image published<br/>Gate in 1–2 pilot services<br/>O11Y_GATE_MODE=report"]
     p2["<b>Phase 2 — Migrate and enforce (3 sprints, TBD)</b><br/>otelkit in all Go APIs, replacing o11yflow<br/>Span events → wide events<br/>span_event_level → violation<br/>O11Y_GATE_MODE=enforce per service"]
     p3["<b>Phase 3 — Close the loop</b><br/>Codegen attrs from registry<br/>Front-end gate (collector bridge)<br/>Continuous live-check in staging<br/>Browser telemetry ingest + auth"]

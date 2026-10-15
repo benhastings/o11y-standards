@@ -1,4 +1,4 @@
-module gitlab.example.com/sre/otelkit
+module github.com/benhastings/o11y-standards/otelkit
 
 go 1.26.0
 

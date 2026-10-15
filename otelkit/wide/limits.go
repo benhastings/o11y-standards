@@ -5,7 +5,7 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 
-	"gitlab.example.com/sre/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
 
 // Limits bound wide-event size (docs/02-logging-standard-wide-events.md).

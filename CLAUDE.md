@@ -65,8 +65,11 @@ Repo layout:
   `kfo11y.*.summary`, finding ids `kfo11y_*`, Rego data `data.kfo11y`,
   `policy-data/kfo11y.yaml`, Go constants `attrs.Kfo11y*`, TS
   `ATTR_KFO11Y_*`, npm scope `@kfo11y`). Final; don't rename.
-- `gitlab.example.com` / `registry.gitlab.example.com` are placeholders until
-  the owner supplies the real GitLab host. Leave them.
+- Everything lives on GitHub for now: Go module
+  `github.com/benhastings/o11y-standards/otelkit` (tags `otelkit/vX.Y.Z`),
+  gate image `ghcr.io/benhastings/o11y-standards/weaver-gate` (tags
+  `vX.Y.Z`), GitLab template via `include: remote:` on raw.githubusercontent.
+  otel-web is unpublished (GitHub Packages can't host the `@kfo11y` scope).
 - Registry pins semconv **v1.43.0** (newest both Go and JS SDKs ship), not 1.44.
 - Registry definitions stay in Weaver **v1** format (v2 unstable; weaver#1814).
 - Wide events are OTel **log-based events** (LogRecord EventName), not span

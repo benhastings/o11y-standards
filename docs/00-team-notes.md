@@ -32,17 +32,26 @@ pick it up.
 | Pins | Weaver 0.27.0 · semconv 1.43.0 · OTel Go v1.47.0 / contrib v0.72.0 · Go 1.26 · OTel JS 2.12.0 / 0.223.0 |
 | Gate rollout | Starts in report mode; each service flips to enforce once clean. |
 
-## Placeholders to replace
+## Where things live
 
-| Placeholder | Where | Replace with |
+Everything is on GitHub for now (`benhastings/o11y-standards`).
+
+| What | Where | Versioned by |
 |---|---|---|
-| `gitlab.example.com` | `otelkit/go.mod` and every Go import, `wide` scope name, `weaver/registry/manifest.yaml` `schema_url`, docs/04 | Real GitLab host (Go module path) |
-| `registry.gitlab.example.com/sre/o11y-standards/weaver-gate` | `ci/weaver.gitlab-ci.yml` (`O11Y_GATE_IMAGE`), `scripts/gate-local.sh` | The project's container registry path |
-| `sre/o11y-standards` | Include snippets in docs/03 and the template header | Real project path |
-| `@kfo11y/otel-web` registry | `otel-web/package.json` | Where the npm package is published (GitLab package registry?) |
+| Go module | `github.com/benhastings/o11y-standards/otelkit` | Tag `otelkit/vX.Y.Z` (Go's rule for a module in a subdirectory) |
+| Gate image | `ghcr.io/benhastings/o11y-standards/weaver-gate` | Tag `vX.Y.Z`; the CI release job pushes the tested image |
+| GitLab gate template | `include: remote:` from `raw.githubusercontent.com/.../vX.Y.Z/ci/weaver.gitlab-ci.yml` | Same `vX.Y.Z` tag |
+| Registry `schema_url` | `https://benhastings.github.io/o11y-standards/schemas/X.Y.Z` | Bumped with the registry |
+| Docs | <https://benhastings.github.io/o11y-standards/> | `main` |
+| `@kfo11y/otel-web` | Not published yet | — |
 
-Changing the Go module path is a search-and-replace across `otelkit/` and then
-`go mod tidy`.
+otel-web: GitHub Packages only hosts npm packages under the owner's scope
+(`@benhastings`), and the `@kfo11y` scope is final, so publishing needs the
+`kfo11y` scope on npmjs.com (or an internal registry). Until then, front ends
+vendor or build it from this repo.
+
+If the project moves to an internal GitLab later, the Go module path change is
+a search-and-replace across `otelkit/` and then `go mod tidy`.
 
 ## Network assumptions
 

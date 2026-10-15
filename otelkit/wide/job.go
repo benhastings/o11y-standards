@@ -7,7 +7,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"gitlab.example.com/sre/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
 
 // Run executes one unit of background work (a scheduled job, a cache refresh,

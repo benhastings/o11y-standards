@@ -15,7 +15,7 @@ file_format: definition_manifest/2.0
 description: >-
   kfo11y SRE telemetry registry: org-owned attributes and the wide-event
   schemas (kfo11y.request.summary, kfo11y.job.summary, kfo11y.ui.interaction.summary).
-schema_url: https://gitlab.example.com/sre/o11y-standards/schemas/0.1.0
+schema_url: https://benhastings.github.io/o11y-standards/schemas/0.1.0
 dependencies:
   - schema_url: https://opentelemetry.io/schemas/1.43.0
     registry_path: https://github.com/open-telemetry/semantic-conventions/archive/refs/tags/v1.43.0.tar.gz[semantic-conventions-1.43.0/model]
