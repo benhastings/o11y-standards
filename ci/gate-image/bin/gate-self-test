@@ -12,7 +12,7 @@ weaver --config "$K/weaver.toml" registry check --registry "$K/registry" --futur
 
 run() {
   weaver --config "$K/weaver.toml" registry live-check \
-    --registry "$K/registry" --include-unreferenced \
+    --registry "$K/registry" \
     --advice-policies "$K/policies" \
     --advice-data "$K/policy-data/**/*.yaml" \
     --input-source stdin --input-format text \

@@ -8,6 +8,7 @@ import {
   ATTR_KFO11Y_UI_API_CALL_COUNT,
   ATTR_KFO11Y_UI_API_CALL_ERROR_COUNT,
   ATTR_KFO11Y_UI_ROUTE,
+  ATTR_KFO11Y_USER_TEAM_ID,
   ATTR_KFO11Y_WIDE_EVENT_TRUNCATED,
   ATTR_ERROR_TYPE,
   ATTR_SESSION_ID,
@@ -52,11 +53,17 @@ export class Interaction {
 
 const active: Interaction[] = [];
 let userId: string | undefined;
+let userTeamId: string | undefined;
 const sessionId = crypto.randomUUID();
 
-/** Call after sign-in (and with undefined on sign-out). */
-export function setUser(id: string | undefined): void {
+/**
+ * Call after sign-in (and with undefined on sign-out). id is an opaque user ID;
+ * teamId is the tenant (kfo11y.user.team.id), so front-end impact can be
+ * broken down by tenant like the APIs.
+ */
+export function setUser(id: string | undefined, teamId?: string): void {
   userId = id;
+  userTeamId = id === undefined ? undefined : teamId;
 }
 
 /** @internal Called by the fetch/XHR instrumentation for every API response. */
@@ -117,6 +124,7 @@ function emit(ix: Interaction): void {
     [ATTR_KFO11Y_UI_API_CALL_ERROR_COUNT]: ix.apiErrors,
     [ATTR_SESSION_ID]: sessionId,
     [ATTR_USER_ID]: userId,
+    [ATTR_KFO11Y_USER_TEAM_ID]: userTeamId,
     [ATTR_ERROR_TYPE]: ix.errorType,
   };
   const clean = clip(attributes);

@@ -79,6 +79,7 @@ func Setup(ctx context.Context, cfg Config) (ShutdownFunc, error) {
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(metricReader),
 		sdkmetric.WithResource(res),
+		sdkmetric.WithView(metricViews()...),
 	)
 	shutdowns = append(shutdowns, mp.Shutdown)
 

@@ -1,6 +1,7 @@
-# Builds docs/ into a site with Zensical (zensical.toml) on every PR that touches
-# it, and deploys to GitHub Pages on pushes to main. Pages must be set to
-# "GitHub Actions" as its source (Settings → Pages).
+# Builds docs/ into a site with Zensical (zensical.toml) on every PR that
+# touches it, or the registry docs/01 must match, and deploys to GitHub Pages
+# on pushes to main. Pages must be set to "GitHub Actions" as its source
+# (Settings → Pages).
 name: Docs
 on:
   pull_request:
@@ -9,6 +10,8 @@ on:
       - zensical.toml
       - requirements-docs.txt
       - .github/workflows/docs.yml
+      - weaver/registry/**
+      - scripts/check-docs-registry.py
   push:
     branches: [main]
     paths:
@@ -16,6 +19,8 @@ on:
       - zensical.toml
       - requirements-docs.txt
       - .github/workflows/docs.yml
+      - weaver/registry/**
+      - scripts/check-docs-registry.py
   workflow_dispatch:
 permissions:
   contents: read
@@ -34,6 +39,8 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install -r requirements-docs.txt
+      - name: docs/01 matches the registry
+        run: python scripts/check-docs-registry.py
       - name: Build (strict, so broken links fail)
         run: zensical build --strict --clean
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

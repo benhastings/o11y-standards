@@ -89,10 +89,14 @@ Repo layout:
 - `manifest.yaml` without `file_format` is assumed v2 and warned about;
   `registry_manifest.yaml` is "legacy". `--future` makes both errors.
   semconv 1.43's own manifest lacks `file_format`; the image patches it.
-- live-check needs `--include-unreferenced`, or unreferenced semconv
-  attributes are `missing_attribute` and deprecated ones never report as
-  `deprecated`. `registry check --future` rejects that setting in
-  `.weaver.toml`, so it's on the live-check command line only.
+- live-check only knows semconv definitions the registry imports or refs.
+  `weaver/registry/imports.yaml` imports them explicitly (attribute groups
+  `registry.*`, plus the entities, metrics and spans we emit); this replaced
+  the deprecated `--include-unreferenced` flag, which is no longer used.
+  Without the `registry.*` import, deprecated names report as missing, not
+  `deprecated`. A plain `*` import fails: some semconv groups (gen_ai, mcp,
+  zos) are excluded from dependency resolution. Verified: report identical
+  to the flag's (entities, levels, every advice message) on the example.
 - The policy step of `registry check` downloads dependencies and ignores
   `[resolve.schema_url_overrides]`; the image rewrites the manifest's
   `registry_path` to `/opt/semconv/model` instead.
@@ -129,7 +133,8 @@ Repo layout:
 
 - Keep attribute names in `otelkit/attrs` and `otel-web/src/attrs.ts` in sync
   with `weaver/registry`; the registry is the source of truth. docs/01's
-  wide-event table and metric classes must match it too.
+  wide-event table and metric classes must match it too;
+  `scripts/check-docs-registry.py` enforces that in the docs workflow.
 - Mermaid for diagrams in markdown.
 - Don't add attributes outside the registry; propose registry changes instead.
 - Commit after each green step.

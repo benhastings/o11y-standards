@@ -15,7 +15,7 @@ libraries that make following it the easy path.
 | `otelkit/` | Go library: provider setup, HTTP middleware, wide events, jobs |
 | `otel-web/` | TypeScript package for React front ends |
 | `dev/` | Local OTel Collector + ClickHouse stack, and `rollups.sql` (metric rollups over wide events) |
-| `scripts/` | `gate-local.sh` (run the gate locally), `gate-verdict.sh` (enforce-mode check of a report), `check-pins.sh`, `update-upstream-policy.sh`, `o11y-smoke.sh` |
+| `scripts/` | `gate-local.sh` (run the gate locally), `gate-verdict.sh` (enforce-mode check of a report), `check-pins.sh`, `check-docs-registry.py` (docs/01 vs registry), `update-upstream-policy.sh`, `o11y-smoke.sh` |
 
 > **Where things live:** the Go module is
 > `github.com/benhastings/o11y-standards/otelkit` (tags `otelkit/vX.Y.Z`), the

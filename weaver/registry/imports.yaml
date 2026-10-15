@@ -1,0 +1,22 @@
+# Semantic-convention groups the gate imports from semconv v1.43.0. Live-check
+# only knows the semconv definitions that are imported here or referenced by
+# our own groups; anything else a service emits is a missing_attribute.
+#
+# This replaces Weaver's deprecated --include-unreferenced flag, which imports
+# everything. A plain "*" no longer works for every kind: some semconv groups
+# (gen_ai, mcp, zos) are excluded from dependency resolution and can't be
+# imported by name.
+#
+# - attribute_groups "registry.*": every semconv attribute definition,
+#   including the registry.*.deprecated groups, so a deprecated name such as
+#   http.method reports as `deprecated` rather than as missing.
+# - entities: the resources our services and the collector set.
+# - metrics and spans: the HTTP and database signals services emit.
+#
+# Instrumenting something new (messaging, RPC, runtime metrics)? Import its
+# groups here, or the gate reports their requirement-level advice as missing.
+imports:
+  attribute_groups: ["registry.*"]
+  entities: ["service", "service.*", "deployment", "host", "os", "process", "process.*", "container", "k8s.*", "cloud", "vcs.*"]
+  metrics: ["http.server.*", "http.client.*", "db.client.*"]
+  spans: ["span.http.*", "span.db.*"]

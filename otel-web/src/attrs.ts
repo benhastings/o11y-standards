@@ -18,6 +18,7 @@ export const ATTR_ERROR_TYPE = 'error.type';
 
 // Org registry
 export const ATTR_KFO11Y_SERVICE_TEAM = 'kfo11y.service.team';
+export const ATTR_KFO11Y_USER_TEAM_ID = 'kfo11y.user.team.id';
 export const ATTR_KFO11Y_DURATION = 'kfo11y.duration';
 export const ATTR_KFO11Y_OUTCOME = 'kfo11y.outcome';
 export const ATTR_KFO11Y_UI_ROUTE = 'kfo11y.ui.route';

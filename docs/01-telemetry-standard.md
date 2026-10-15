@@ -135,7 +135,7 @@ Columns: **Request** = `kfo11y.request.summary`, **Job** =
 | `kfo11y.outcome` | enum | R | R | R |
 | `error.type` | string | C | C | C |
 | `user.id` | string | C | — | C |
-| `kfo11y.user.team.id` | string | C | — | — |
+| `kfo11y.user.team.id` | string | C | — | C |
 | `kfo11y.user.tier` | string | Rec | — | — |
 | `session.id` | string | — | — | Rec |
 | `kfo11y.authz.decision` | enum | C | — | — |
@@ -147,7 +147,7 @@ Columns: **Request** = `kfo11y.request.summary`, **Job** =
 | `kfo11y.feature_flags.enabled` | string[] | Rec | — | — |
 | `kfo11y.ui.api_call.count` | int | — | — | R |
 | `kfo11y.ui.api_call.error.count` | int | — | — | R |
-| `kfo11y.wide_event.truncated` | boolean | Opt | Opt | — |
+| `kfo11y.wide_event.truncated` | boolean | Opt | Opt | Opt |
 | `kfo11y.wide_event.dropped_attributes.count` | int | Opt | Opt | — |
 
 Conditions and notes:
@@ -264,7 +264,7 @@ it doesn't grow with traffic, users, or deploys.
 | `kfo11y.authz.decision` | Request event | Three values |
 | `kfo11y.job.name` | Job event | |
 | `kfo11y.ui.route`, `kfo11y.ui.action` | UI event | |
-| `kfo11y.user.team.id`, `kfo11y.user.tier` | Request event | Tenant dimensions, kept in **their own rollup** (without route) so tenants × routes × status never multiplies out |
+| `kfo11y.user.team.id`, `kfo11y.user.tier` | Request event (tenant is on UI events too) | Tenant dimensions, kept in **their own rollup** (without route) so tenants × routes × status never multiplies out. The rollup covers requests; query UI tenant impact on raw events |
 
 **Measures: aggregate them, never group by them**
 
@@ -284,7 +284,8 @@ These stay in the raw wide events and spans, and age out with them:
 `kfo11y.feature_flags.enabled` (an array; `arrayJoin` it on raw events when
 needed), `service.instance.id`, `k8s.pod.name`, `k8s.pod.uid`,
 `k8s.node.name`, `host.name`, `container.id`, `vcs.ref.head.revision` (group by
-`service.version` instead), `TraceId` / `SpanId`, and everything in
+`service.version` instead), `kfo11y.wide_event.dropped_attributes.count`
+(the `truncated` count already flags the problem), `TraceId` / `SpanId`, and everything in
 [Tracing only](#tracing-only). If the number of policies turns out to be
 small, `kfo11y.authz.policy.id` can be promoted to a dimension later.
 
@@ -346,12 +347,12 @@ raw events directly ([02](02-logging-standard-wide-events.md#querying-wide-event
 
 otelkit's HTTP middleware (otelhttp) also emits `http.server.request.duration`
 and the body-size histograms, with `http.request.method`, `http.route`,
-`http.response.status_code`, `url.scheme`, `network.protocol.*`,
-`server.address` and `server.port`. In semconv, `server.address` and
-`server.port` are opt-in for metrics, because they come from the Host header
-and a client can use them to inflate cardinality. Dropping them is a
-follow-up ([00](00-team-notes.md)). Until then, treat the wide-event rollups
-as the source for RED, and the SDK histograms as a cross-check.
+`http.response.status_code`, `url.scheme` and `network.protocol.*`. otelkit
+drops `server.address` and `server.port` from them with a metric view: semconv
+makes them opt-in for metrics, because they come from the Host header and a
+client can use them to inflate cardinality. They stay on the SERVER span.
+Treat the wide-event rollups as the source for RED, and the SDK histograms as
+a cross-check.
 
 ## Changes from the previous metadata guidance
 
