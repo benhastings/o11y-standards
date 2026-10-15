@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.example.com/sre/otelkit"
-	"gitlab.example.com/sre/otelkit/wide"
+	"github.com/benhastings/o11y-standards/otelkit"
+	"github.com/benhastings/o11y-standards/otelkit/wide"
 )
 
 func TestTelemetrySmoke(t *testing.T) {

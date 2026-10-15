@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.example.com/sre/otelkit/attrs"
-	"gitlab.example.com/sre/otelkit/wide"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/wide"
 )
 
 type policy struct {

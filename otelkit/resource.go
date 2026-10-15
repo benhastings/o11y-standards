@@ -11,7 +11,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
 
-	"gitlab.example.com/sre/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
 
 // NewResource builds the service resource. Precedence, lowest to highest:

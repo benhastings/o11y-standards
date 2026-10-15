@@ -26,6 +26,9 @@ RUN wget -qO /tmp/semconv.tgz "$SEMCONV_URL" \
       || sed -i '1i file_format: definition_manifest/2.0' /opt/semconv/model/manifest.yaml; }
 
 FROM ${WEAVER_IMAGE}
+# Links the GHCR package to the repo (permissions, README, visibility).
+LABEL org.opencontainers.image.source="https://github.com/benhastings/o11y-standards" \
+      org.opencontainers.image.description="Weaver telemetry gate: Weaver + kfo11y registry, policies and semconv"
 USER root
 COPY --from=semconv /opt/semconv/model /opt/semconv/model
 COPY weaver/ /opt/kfo11y/weaver/

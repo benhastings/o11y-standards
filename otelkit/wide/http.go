@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/trace"
 
-	"gitlab.example.com/sre/otelkit/attrs"
+	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
 
 // Handler wraps next (usually your router) with OpenTelemetry server tracing

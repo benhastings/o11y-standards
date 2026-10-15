@@ -3,9 +3,7 @@
 # Usage in an app's .gitlab-ci.yml:
 #
 #   include:
-#     - project: sre/o11y-standards
-#       ref: v0.1.0
-#       file: ci/weaver.gitlab-ci.yml
+#     - remote: https://raw.githubusercontent.com/benhastings/o11y-standards/v0.1.0/ci/weaver.gitlab-ci.yml
 #
 #   variables:
 #     O11Y_SERVICE_NAME: policy-api
@@ -21,8 +19,8 @@
 # See docs/03-weaver-gate.md.
 
 variables:
-  # Keep this tag equal to the include `ref` above.
-  O11Y_GATE_IMAGE: "registry.gitlab.example.com/sre/o11y-standards/weaver-gate:v0.1.0"
+  # Keep this tag equal to the version in the include URL above.
+  O11Y_GATE_IMAGE: "ghcr.io/benhastings/o11y-standards/weaver-gate:v0.1.0"
   O11Y_JOB_IMAGE: "golang:1.26"           # your build image; needs curl
   O11Y_GATE_MODE: "report"                # report | enforce
   O11Y_SMOKE_MODE: "go-test"              # go-test | process

@@ -8,7 +8,7 @@
 # GATE_IMAGE defaults to the released image; use weaver-gate:dev after
 #   docker build -f ci/gate-image/Dockerfile -t weaver-gate:dev .
 set -euo pipefail
-image="${GATE_IMAGE:-registry.gitlab.example.com/sre/o11y-standards/weaver-gate:v0.1.0}"
+image="${GATE_IMAGE:-ghcr.io/benhastings/o11y-standards/weaver-gate:v0.1.0}"
 name=kfo11y-gate
 admin=http://127.0.0.1:4320
 

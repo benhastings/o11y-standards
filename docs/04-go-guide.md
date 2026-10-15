@@ -7,7 +7,7 @@ per request or job.
 ## Install
 
 ```sh
-go get gitlab.example.com/sre/otelkit@v0.1.0
+go get github.com/benhastings/o11y-standards/otelkit@v0.1.0
 ```
 
 Requires Go 1.26+ and OpenTelemetry Go v1.47.0+ (the first release with a
