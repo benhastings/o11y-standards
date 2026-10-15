@@ -182,10 +182,12 @@ docker run --rm --entrypoint gate-self-test -w /tmp weaver-gate:dev /tmp
 - **Upgrading semconv:** bump `SEMCONV_VERSION` and `SEMCONV_SHA256` in the
   Dockerfile and the dependency in `weaver/registry/manifest.yaml`, and move
   otelkit/otel-web constants in the same MR.
-- **Every live-check run needs `--include-unreferenced`.** Without it, semconv
-  attributes our registry doesn't `ref` are reported as `missing_attribute`.
-  Weaver 0.27 already warns that this flag is deprecated in favor of explicit
-  `imports`; see the follow-ups in [00](00-team-notes.md).
+- **Semconv imports.** Live-check only knows the semconv definitions that
+  `weaver/registry/imports.yaml` imports: every attribute definition, plus
+  the HTTP and database metrics and spans, and the resource entities we use.
+  When services start emitting a new kind of signal (messaging, RPC, runtime
+  metrics), add its groups there, or the gate won't apply its requirement
+  levels. This replaced Weaver's deprecated `--include-unreferenced` flag.
 
 ## Known limitations
 

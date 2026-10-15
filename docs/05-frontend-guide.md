@@ -52,9 +52,13 @@ header.
 ```ts
 import { setUser } from '@kfo11y/otel-web';
 
-onSignIn((session) => setUser(session.userId)); // opaque ID, never an email or employee number
+// Opaque user ID (never an email or employee number) and the tenant.
+onSignIn((session) => setUser(session.userId, session.teamId));
 onSignOut(() => setUser(undefined));
 ```
+
+The tenant becomes `kfo11y.user.team.id` on every interaction event, so
+front-end impact can be broken down by tenant like the APIs.
 
 ## 3. Track interactions
 
@@ -84,8 +88,8 @@ What you get for each call:
   spans (which continue into the Go API's SERVER span);
 - one `kfo11y.ui.interaction.summary` with `kfo11y.ui.action`, `kfo11y.ui.route`,
   `kfo11y.duration`, `kfo11y.outcome`, `kfo11y.ui.api_call.count`,
-  `kfo11y.ui.api_call.error.count`, `user.id`, `session.id`, and `error.type`
-  on failure.
+  `kfo11y.ui.api_call.error.count`, `user.id`, `kfo11y.user.team.id`, `session.id`,
+  and `error.type` on failure.
 
 Outcome rules: `success` if nothing failed; `upstream_error` if any API call
 failed (network error or status ≥ 400); `ui_error` if your code threw without

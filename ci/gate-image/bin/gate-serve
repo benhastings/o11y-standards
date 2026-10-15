@@ -5,7 +5,7 @@
 set -eu
 K=/opt/kfo11y/weaver
 exec weaver --config "$K/weaver.toml" registry live-check \
-  --registry "$K/registry" --include-unreferenced \
+  --registry "$K/registry" \
   --advice-policies "$K/policies" \
   --advice-data "$K/policy-data/**/*.yaml" \
   --input-source otlp \

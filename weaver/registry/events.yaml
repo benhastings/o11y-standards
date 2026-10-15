@@ -107,5 +107,10 @@ groups:
       - ref: user.id
         requirement_level:
           conditionally_required: Once the user has signed in.
+      - ref: kfo11y.user.team.id
+        requirement_level:
+          conditionally_required: Once the user has signed in.
       - ref: session.id
         requirement_level: recommended
+      - ref: kfo11y.wide_event.truncated
+        requirement_level: opt_in

@@ -22,6 +22,8 @@ const (
 	HTTPRoute              = attribute.Key("http.route")
 	HTTPResponseStatusCode = attribute.Key("http.response.status_code")
 	ErrorType              = attribute.Key("error.type")
+	ServerAddress          = attribute.Key("server.address")
+	ServerPort             = attribute.Key("server.port")
 	UserID                 = attribute.Key("user.id")
 )
 

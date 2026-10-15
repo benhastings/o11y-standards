@@ -96,9 +96,6 @@ GitLab runners:
 
 ## Follow-ups (backlog)
 
-- **Registry imports.** Live-check needs `--include-unreferenced`, which
-  Weaver 0.27 warns is deprecated. Replace it with explicit `imports` of the
-  semconv attributes and groups we use, before Weaver drops the flag.
 - **Codegen** `otelkit/attrs` and `otel-web/src/attrs.ts` from the registry
   with Weaver templates, instead of hand-maintaining them.
 - **otel-web fidelity:** per-interaction attribution of API calls (instead of
@@ -109,14 +106,6 @@ GitLab runners:
 - **Continuous live-check in staging**, findings exported to ClickHouse.
 - **Rollups on the platform ClickHouse.** Apply `dev/rollups.sql` (with the
   agreed TTLs) and backfill from the raw events still in retention.
-- **Drop `server.address` / `server.port` from otelkit's HTTP metrics.**
-  otelhttp adds them, but semconv makes them opt-in for metrics because they
-  come from the Host header. A metric view in otelkit, or the collector, can
-  remove them.
-- **UI event gaps in the registry.** `kfo11y.ui.interaction.summary` doesn't
-  reference `kfo11y.user.team.id`, so front-end tenant impact can't be
-  queried, or `kfo11y.wide_event.truncated`, which otel-web already sets.
-  Propose adding both.
 - **Semconv 1.44** once both SDKs ship constants for it.
 - **o11yflow retirement:** list the services on it, migrate each to otelkit,
   archive the repo.
