@@ -61,7 +61,7 @@ cd otelkit
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317 OTEL_EXPORTER_OTLP_PROTOCOL=grpc \
 DEPLOYMENT_ENVIRONMENT=development SERVICE_VERSION=0.0.0-dev \
   go run ./example &
-curl -H 'X-User-Id: usr_1' localhost:8080/v1/policies/p-1
+curl -H 'X-User-Id: usr_1' localhost:8080/v1/documents/doc-1
 
 # Look at the wide events
 docker compose -f dev/docker-compose.yaml exec clickhouse \

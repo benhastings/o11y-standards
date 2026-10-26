@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	otellog "go.opentelemetry.io/otel/log"
@@ -33,11 +32,11 @@ const (
 // promoted lists event attributes that are also copied onto the active span,
 // so a trace search can filter on them.
 var promoted = map[attribute.Key]bool{
-	attrs.UserID:              true,
-	attrs.Kfo11yUserTeamID:    true,
-	attrs.Kfo11yOutcome:       true,
-	attrs.ErrorType:           true,
-	attrs.Kfo11yAuthzDecision: true,
+	attrs.UserID:                true,
+	attrs.Kfo11yUserTeamID:      true,
+	attrs.Kfo11yOutcome:         true,
+	attrs.ErrorType:             true,
+	attrs.Kfo11ySearchIndexName: true,
 }
 
 // Event accumulates attributes for one unit of work.
@@ -216,18 +215,7 @@ func (e *Event) Emit(ctx context.Context) {
 	kvs = applyLimits(kvs, limits)
 	promote(ctx, kvs, outcome, errType)
 
-	sev, sevText := severity(outcome)
-	now := time.Now()
-	var rec otellog.Record
-	rec.SetEventName(e.name)
-	rec.SetTimestamp(now)
-	rec.SetObservedTimestamp(now)
-	rec.SetSeverity(sev)
-	rec.SetSeverityText(sevText)
-	rec.SetBody(attribute.StringValue(summary(kvs)))
-	rec.AddAttributes(kvs...)
-
-	otel.Logger(scopeName, otellog.WithInstrumentationVersion(scopeVersion)).Emit(ctx, rec)
+	emit(ctx, e.name, severity(outcome), summary(kvs), kvs)
 }
 
 func (e *Event) snapshotLocked() []attribute.KeyValue {
@@ -302,14 +290,14 @@ func promote(ctx context.Context, kvs []attribute.KeyValue, outcome attrs.Outcom
 	}
 }
 
-func severity(o attrs.Outcome) (otellog.Severity, string) {
+func severity(o attrs.Outcome) otellog.Severity {
 	switch o {
 	case attrs.OutcomeServerError, attrs.OutcomeUpstreamError:
-		return otellog.SeverityError, "ERROR"
+		return otellog.SeverityError
 	case attrs.OutcomeClientError:
-		return otellog.SeverityWarn, "WARN"
+		return otellog.SeverityWarn
 	default:
-		return otellog.SeverityInfo, "INFO"
+		return otellog.SeverityInfo
 	}
 }
 

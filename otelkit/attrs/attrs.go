@@ -37,8 +37,11 @@ const (
 	Kfo11yDuration = attribute.Key("kfo11y.duration")
 	Kfo11yOutcome  = attribute.Key("kfo11y.outcome")
 
-	Kfo11yAuthzDecision = attribute.Key("kfo11y.authz.decision")
-	Kfo11yAuthzPolicyID = attribute.Key("kfo11y.authz.policy.id")
+	Kfo11ySearchIndexName             = attribute.Key("kfo11y.search.index.name")
+	Kfo11ySearchResultCount           = attribute.Key("kfo11y.search.result.count")
+	Kfo11ySearchIndexRevision         = attribute.Key("kfo11y.search.index.revision")
+	Kfo11ySearchIndexPreviousRevision = attribute.Key("kfo11y.search.index.previous_revision")
+	Kfo11ySearchIndexDocumentCount    = attribute.Key("kfo11y.search.index.document.count")
 
 	Kfo11yDBQueryCount        = attribute.Key("kfo11y.db.query.count")
 	Kfo11yDBQueryDuration     = attribute.Key("kfo11y.db.query.duration")
@@ -58,24 +61,18 @@ const (
 	EventJobSummary     = "kfo11y.job.summary"
 )
 
+// Point-in-time event names (LogRecord EventName), emitted with wide.Log.
+const (
+	EventSearchIndexActivation = "kfo11y.search.index.activation"
+)
+
 // Outcome is a value of kfo11y.outcome.
 type Outcome string
 
 // kfo11y.outcome values.
 const (
 	OutcomeSuccess       Outcome = "success"
-	OutcomeDenied        Outcome = "denied"
 	OutcomeClientError   Outcome = "client_error"
 	OutcomeUpstreamError Outcome = "upstream_error"
 	OutcomeServerError   Outcome = "server_error"
-)
-
-// Decision is a value of kfo11y.authz.decision.
-type Decision string
-
-// kfo11y.authz.decision values.
-const (
-	DecisionAllow         Decision = "allow"
-	DecisionDeny          Decision = "deny"
-	DecisionIndeterminate Decision = "indeterminate"
 )

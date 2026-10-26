@@ -21,11 +21,11 @@ func TestHTTPServerMetricsDropHostAttributes(t *testing.T) {
 	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/policies/{id}", func(w http.ResponseWriter, _ *http.Request) {})
+	mux.HandleFunc("GET /v1/documents/{id}", func(w http.ResponseWriter, _ *http.Request) {})
 	srv := httptest.NewServer(wide.Handler(mux, otelhttp.WithMeterProvider(mp)))
 	t.Cleanup(srv.Close)
 
-	resp, err := srv.Client().Get(srv.URL + "/v1/policies/p-1")
+	resp, err := srv.Client().Get(srv.URL + "/v1/documents/doc-1")
 	if err != nil {
 		t.Fatal(err)
 	}

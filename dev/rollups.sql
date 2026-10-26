@@ -3,7 +3,7 @@
 -- Raw wide events in otel_logs are kept for a short window (the exporter's
 -- TTL). These tables keep only the dimensions and measures that make sense to
 -- aggregate, so RED metrics, SLIs and tenant impact outlive the raw events.
--- High-cardinality attributes (user.id, session.id, policy ids, pod names,
+-- High-cardinality attributes (user.id, session.id, document ids, pod names,
 -- trace ids) are left out on purpose: they stay in the raw events and age out.
 --
 -- Load after the collector has created otel_logs:
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS kfo11y_request_rollup_1m
     status         UInt16,
     outcome        LowCardinality(String),
     error_type     LowCardinality(String),
-    authz_decision LowCardinality(String),
+    search_index   LowCardinality(String),
     requests       SimpleAggregateFunction(sum, UInt64),
     duration_sum   SimpleAggregateFunction(sum, Float64),
     duration_q     AggregateFunction(quantilesTDigest(0.5, 0.9, 0.99), Float64),
@@ -40,11 +40,14 @@ CREATE TABLE IF NOT EXISTS kfo11y_request_rollup_1m
     cache_lookups  SimpleAggregateFunction(sum, UInt64),
     cache_hits     SimpleAggregateFunction(sum, UInt64),
     cache_retries  SimpleAggregateFunction(sum, UInt64),
+    searches       SimpleAggregateFunction(sum, UInt64),
+    search_results SimpleAggregateFunction(sum, UInt64),
+    zero_results   SimpleAggregateFunction(sum, UInt64),
     truncated      SimpleAggregateFunction(sum, UInt64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toYYYYMM(t)
-ORDER BY (environment, service, t, route, method, status, outcome, error_type, authz_decision, namespace, team, version)
+ORDER BY (environment, service, t, route, method, status, outcome, error_type, search_index, namespace, team, version)
 TTL t + INTERVAL 13 MONTH;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS kfo11y_request_rollup_1m_mv TO kfo11y_request_rollup_1m AS
@@ -60,7 +63,7 @@ SELECT
     toUInt16OrZero(LogAttributes['http.response.status_code'])     AS status,
     LogAttributes['kfo11y.outcome']                                AS outcome,
     LogAttributes['error.type']                                    AS error_type,
-    LogAttributes['kfo11y.authz.decision']                         AS authz_decision,
+    LogAttributes['kfo11y.search.index.name']                      AS search_index,
     count()                                                        AS requests,
     sum(toFloat64OrZero(LogAttributes['kfo11y.duration']))         AS duration_sum,
     quantilesTDigestState(0.5, 0.9, 0.99)(toFloat64OrZero(LogAttributes['kfo11y.duration'])) AS duration_q,
@@ -69,10 +72,13 @@ SELECT
     countIf(mapContains(LogAttributes, 'kfo11y.cache.hit'))        AS cache_lookups,
     countIf(LogAttributes['kfo11y.cache.hit'] = 'true')            AS cache_hits,
     sum(toUInt64OrZero(LogAttributes['kfo11y.cache.retry.count'])) AS cache_retries,
+    countIf(mapContains(LogAttributes, 'kfo11y.search.result.count')) AS searches,
+    sum(toUInt64OrZero(LogAttributes['kfo11y.search.result.count'])) AS search_results,
+    countIf(LogAttributes['kfo11y.search.result.count'] = '0')    AS zero_results,
     countIf(LogAttributes['kfo11y.wide_event.truncated'] = 'true') AS truncated
 FROM otel_logs
 WHERE EventName = 'kfo11y.request.summary'
-GROUP BY t, environment, service, namespace, team, version, method, route, status, outcome, error_type, authz_decision;
+GROUP BY t, environment, service, namespace, team, version, method, route, status, outcome, error_type, search_index;
 
 -- Tenants: kept apart from the route rollup so tenant x route x status never
 -- multiplies out. Answers "which tenants are hurting" after raw events expire.

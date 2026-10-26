@@ -5,8 +5,8 @@
 # Routes file format, one per line (blank lines and # comments ignored):
 #   METHOD  PATH  EXPECTED_STATUS  [HEADER ...]
 # Example:
-#   GET  /v1/policies/p-1  200  X-User-Id:usr_1
-#   GET  /v1/policies/p-1  401
+#   GET  /v1/documents/doc-1  200  X-User-Id:usr_1
+#   GET  /v1/documents/doc-1  401
 set -uo pipefail
 
 APP_URL="${O11Y_APP_URL:-http://127.0.0.1:8080}"

@@ -4,6 +4,50 @@
 setup, HTTP tracing and metrics with correct route naming, and one wide event
 per request or job.
 
+## How it fits together
+
+You write three kinds of call; otelkit does the rest with the standard
+OpenTelemetry APIs underneath.
+
+| You write | otelkit does | Signal |
+|---|---|---|
+| `otelkit.Setup` once in `main` | Builds the Resource (service, team, version, environment, commit), sets the global tracer, meter and logger providers, wires exporters from `OTEL_*` | All of them carry the Resource |
+| `wide.Handler(mux)` or `wide.Run(ctx, name, fn)` | Starts the SERVER or INTERNAL span, starts the wide event, names the span by route, classifies the outcome, emits the event on every exit path | One span tree + one wide event per unit of work |
+| `wide.FromContext(ctx).Set(...)` / `.Track(...)` | Accumulates attributes, counts and durations on the wide event; copies a few onto the span | Wide event (and span) attributes |
+| `wide.Step(ctx, name, fn)` (optional) | Starts an INTERNAL child span; on error sets status and `error.type`, no span event | A child span |
+| `wide.Log(ctx, name, sev, ...)` (rare) | Emits a named log-based event correlated to the current span | A standalone event |
+
+```mermaid
+sequenceDiagram
+    participant H as Your handler
+    participant W as wide.Handler
+    participant S as Tracer (span)
+    participant E as Wide event
+    participant L as Logger
+    W->>S: start SERVER span "GET"
+    W->>E: Start(kfo11y.request.summary), http.request.method
+    W->>H: ServeHTTP(ctx with span + event)
+    H->>E: FromContext(ctx).Set(user.id, kfo11y.user.team.id)
+    H->>E: Track(db count/duration), Set(cache hit)
+    H->>S: wide.Step(ctx, "search.query") creates a child span
+    H->>E: Set(kfo11y.search.index.name, kfo11y.search.result.count)
+    H-->>W: returns (or panics)
+    W->>S: rename "GET /v1/search", set http.route
+    W->>E: status, outcome, kfo11y.duration
+    W->>S: copy user.id, outcome, error.type, search index onto span
+    W->>L: Emit one log record (EventName, trace/span id from ctx)
+    W->>S: end span
+```
+
+The Resource is attached by the providers, so nothing in your handler sets
+service, team, version, environment, Kubernetes or cloud attributes. Trace
+context flows through `ctx`: pass it everywhere and every span, event and
+outbound call is correlated without further code.
+
+There is no separate "logger" to set up. The wide event *is* the log record
+for the request. `log`/`slog` output stays local (stdout, for humans) and
+isn't shipped as telemetry.
+
 ## Install
 
 ```sh
@@ -21,9 +65,9 @@ func main() {
 	defer stop()
 
 	shutdown, err := otelkit.Setup(ctx, otelkit.Config{
-		ServiceName:      "policy-api",
-		ServiceNamespace: "policy",
-		Team:             "policy-team",
+		ServiceName:      "search-api",
+		ServiceNamespace: "search",
+		Team:             "search-team",
 	})
 	if err != nil {
 		log.Fatalf("telemetry setup: %v", err)
@@ -48,20 +92,20 @@ endpoints or protocols is hard-coded.
 
 ```go
 mux := http.NewServeMux()
-mux.Handle("GET /v1/policies/{id}", authn(http.HandlerFunc(getPolicy)))
-mux.Handle("POST /v1/authz/allow", authn(http.HandlerFunc(allow)))
+mux.Handle("GET /v1/documents/{id}", identify(http.HandlerFunc(getDocument)))
+mux.Handle("GET /v1/search", identify(http.HandlerFunc(search)))
 
 handler := wide.Handler(mux)
 ```
 
-`wide.Handler` creates the SERVER span, names it `GET /v1/policies/{id}`,
+`wide.Handler` creates the SERVER span, names it `GET /v1/documents/{id}`,
 adds `http.route` to the span and to `http.server.request.duration`, and emits
 `kfo11y.request.summary` when the request finishes, including on panic.
 
 Put `wide.Handler` directly around the `ServeMux`. Route detection reads the
 pattern ServeMux sets on the request, so a middleware in between that copies
 the request (`r.WithContext(...)`) hides it. Wrap individual routes instead,
-as `authn` does above, or call `wide.SetRoute`.
+as `identify` does above, or call `wide.SetRoute`.
 
 Using chi or another router? Report the template after routing:
 
@@ -93,11 +137,11 @@ done := wide.FromContext(ctx).Track(attrs.Kfo11yDBQueryCount, attrs.Kfo11yDBQuer
 rows, err := db.QueryContext(ctx, q, args...)
 done()
 
-// Authorization decision. A deny is a correct answer, not an error.
-ev := wide.FromContext(ctx)
-ev.Set(attrs.Kfo11yAuthzDecision.String(string(attrs.DecisionDeny)),
-	attrs.Kfo11yAuthzPolicyID.String(p.ID))
-ev.SetOutcome(attrs.OutcomeDenied)
+// Search. No results is a correct answer, not an error: the outcome stays success.
+wide.FromContext(ctx).Set(
+	attrs.Kfo11ySearchIndexName.String("documents"),
+	attrs.Kfo11ySearchResultCount.Int(len(hits)),
+)
 ```
 
 Put the `Set`/`Track` calls in your shared packages (auth middleware, DB
@@ -131,14 +175,56 @@ Without an `ErrorType()` method, `SetError` records `timeout`, `canceled`, or
 ## 5. Background work
 
 ```go
-err := wide.Run(ctx, "policy-cache-refresh", func(ctx context.Context) error {
+err := wide.Run(ctx, "search-cache-refresh", func(ctx context.Context) error {
 	// Outbound calls in here become children of an INTERNAL span,
 	// and one kfo11y.job.summary is emitted at the end.
 	return refresh(ctx)
 })
 ```
 
-## 6. Outbound HTTP
+## 6. A step worth its own span
+
+`wide.Handler` and `wide.Run` already create the span for the unit of work.
+When one part of it deserves its own bar in the trace (a ranking pass, a
+fan-out, a slow computation), wrap it in `wide.Step`:
+
+```go
+err := wide.Step(ctx, "search.rank", func(ctx context.Context) error {
+	trace.SpanFromContext(ctx).SetAttributes(attrs.Kfo11ySearchIndexName.String("documents"))
+	return ranker.Rank(ctx, hits)
+})
+```
+
+The span is an INTERNAL child of whatever span is in `ctx`; outbound calls
+made inside nest under it, and `wide.FromContext(ctx)` still returns the
+request's event. On error the span gets status Error and `error.type`. It
+does **not** record a span event: `span.RecordError` and `span.AddEvent` are
+the deprecated Span Event API. `Step` returns the error unchanged, so setting
+`error.type` and the outcome on the wide event is still your call.
+
+The name must be low-cardinality: `search.rank`, never `rank doc-1842`.
+Plain `otel.Tracer(...).Start` works too; `Step` just handles the error the
+standard way.
+
+## 7. A point-in-time event
+
+Something that happens outside a request or job (a cache reload, a search
+index activation, a certificate rotation) is a named log-based event, not a
+log line:
+
+```go
+wide.Log(ctx, attrs.EventSearchIndexActivation, otellog.SeverityInfo,
+	attrs.Kfo11ySearchIndexName.String("documents"),
+	attrs.Kfo11ySearchIndexRevision.String(rev),
+	attrs.Kfo11yOutcome.String(string(attrs.OutcomeSuccess)))
+```
+
+Define the event and its attributes in `weaver/registry/events.yaml` first.
+The record is correlated to the span in `ctx` and the wide-event size limits
+apply. Detail about a request or job goes on its wide event, never in
+`wide.Log`.
+
+## 8. Outbound HTTP
 
 Use an instrumented transport so the downstream service joins the trace:
 
@@ -152,9 +238,11 @@ client := &http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 |---|---|
 | Use keys from the `attrs` package | Type attribute names as string literals |
 | Put IDs in attribute values | Put IDs in span names or routes |
-| Record a deny as `OutcomeDenied` | Treat a correct "no" as an error |
+| Record an empty search as `success` with a result count of 0 | Treat a correct "nothing found" as an error |
 | Store a reference to a large payload | Put request bodies, stack traces, or tokens on events |
-| Add detail to the wide event | Call `span.AddEvent` / `span.RecordException` (deprecated API) |
+| Add detail to the wide event | Call `span.AddEvent` / `span.RecordError` (deprecated API) |
+| Use `wide.Step` for a span that can fail | Hand-roll spans that record errors as span events |
+| Use `wide.Log` with a registry event name | Ship `log`/`slog` lines as telemetry |
 | Call `shutdown` on exit | `os.Exit` without flushing |
 
 ## Local debugging

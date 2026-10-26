@@ -62,9 +62,9 @@ jobs:
           OTEL_BSP_SCHEDULE_DELAY: "200"
           OTEL_BLRP_SCHEDULE_DELAY: "200"
           OTEL_TRACES_SAMPLER: "always_on"
-          OTEL_SERVICE_NAME: "example-policy-api"
-          SERVICE_NAMESPACE: "policy"
-          SERVICE_TEAM: "policy-team"
+          OTEL_SERVICE_NAME: "example-search-api"
+          SERVICE_NAMESPACE: "search"
+          SERVICE_TEAM: "search-team"
           DEPLOYMENT_ENVIRONMENT: "ci"
           GIT_COMMIT_SHA: ${{ github.sha }}
         run: |

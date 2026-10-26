@@ -4,6 +4,7 @@
 Checks, against weaver/registry:
   - the "Wide events: the full list" table has exactly the attributes the
     three wide events reference, with the right requirement level per event;
+  - every other registry event (a point-in-time event) is named on the page;
   - the Type column matches for org (kfo11y.*) attributes;
   - every attribute in that table is classified in "Metric aggregation"
     (a dimension, a measure, or drill-down only);
@@ -45,15 +46,20 @@ def main():
     org_types = {a["id"]: type_name(a["type"]) for g in attr_groups for a in g["attributes"]}
 
     want = {}  # attribute -> {column: code}
+    wide_names = set(yaml.safe_load((ROOT / "weaver/policy-data/kfo11y.yaml").read_text())["wide_event_names"])
+    text = DOC.read_text()
     for ev in events:
+        if ev.get("name") not in wide_names:
+            if f"`{ev.get('name')}`" not in text:
+                errors.append(f"point-in-time event {ev.get('name')!r} missing from docs/01")
+            continue
         col = COLUMNS.get(ev.get("name"))
         if col is None:
-            errors.append(f"registry event {ev.get('name')!r} has no column in docs/01; add one")
+            errors.append(f"wide event {ev.get('name')!r} has no column in docs/01; add one")
             continue
         for a in ev["attributes"]:
             want.setdefault(a["ref"], {})[col] = level_code(a.get("requirement_level", "recommended"))
 
-    text = DOC.read_text()
     if HEADER not in text:
         sys.exit(f"docs/01: table header {HEADER!r} not found")
     table = text[text.index(HEADER):].split("\n\n", 1)[0].splitlines()[2:]

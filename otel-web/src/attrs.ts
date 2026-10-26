@@ -31,7 +31,6 @@ export const EVENT_UI_INTERACTION_SUMMARY = 'kfo11y.ui.interaction.summary';
 
 export type Outcome =
   | 'success'
-  | 'denied'
   | 'client_error'
   | 'upstream_error'
   | 'server_error'

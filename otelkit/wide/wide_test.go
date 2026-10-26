@@ -13,10 +13,12 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	otellog "go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/benhastings/o11y-standards/otelkit/attrs"
 )
@@ -87,18 +89,18 @@ func serve(h http.Handler, method, target string) *httptest.ResponseRecorder {
 func TestHandlerEmitsOneCorrelatedEvent(t *testing.T) {
 	logs, spans := install(t)
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/policies/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/documents/{id}", func(w http.ResponseWriter, r *http.Request) {
 		FromContext(r.Context()).Set(attrs.UserID.String("usr_1"))
 		w.WriteHeader(http.StatusOK)
 	})
 
-	serve(Handler(mux), "GET", "/v1/policies/p-1")
+	serve(Handler(mux), "GET", "/v1/documents/doc-1")
 
 	rec, a := only(t, logs)
 	if rec.EventName() != attrs.EventRequestSummary {
 		t.Errorf("EventName = %q", rec.EventName())
 	}
-	if got := a[attrs.HTTPRoute].AsString(); got != "/v1/policies/{id}" {
+	if got := a[attrs.HTTPRoute].AsString(); got != "/v1/documents/{id}" {
 		t.Errorf("http.route = %q", got)
 	}
 	if got := a[attrs.HTTPResponseStatusCode].AsInt64(); got != 200 {
@@ -116,7 +118,7 @@ func TestHandlerEmitsOneCorrelatedEvent(t *testing.T) {
 		t.Fatalf("got %d spans, want 1", len(ended))
 	}
 	span := ended[0]
-	if span.Name() != "GET /v1/policies/{id}" {
+	if span.Name() != "GET /v1/documents/{id}" {
 		t.Errorf("span name = %q", span.Name())
 	}
 	if rec.TraceID() != span.SpanContext().TraceID() || rec.SpanID() != span.SpanContext().SpanID() {
@@ -142,10 +144,6 @@ func TestHandlerOutcomeClassification(t *testing.T) {
 		{"ok", func(w http.ResponseWriter, _ *http.Request) {}, "success", "", otellog.SeverityInfo},
 		{"not found", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(404) }, "client_error", "", otellog.SeverityWarn},
 		{"server error", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(500) }, "server_error", "500", otellog.SeverityError},
-		{"deliberate deny", func(w http.ResponseWriter, r *http.Request) {
-			FromContext(r.Context()).SetOutcome(attrs.OutcomeDenied)
-			w.WriteHeader(403)
-		}, "denied", "", otellog.SeverityInfo},
 		{"upstream with typed error", func(w http.ResponseWriter, r *http.Request) {
 			ev := FromContext(r.Context())
 			ev.SetOutcome(attrs.OutcomeUpstreamError)
@@ -407,5 +405,91 @@ func TestRunClassifiesOutcome(t *testing.T) {
 	}
 	if n := len(spans.Ended()); n != 2 {
 		t.Errorf("got %d spans, want 2 INTERNAL roots", n)
+	}
+}
+
+func TestStepNestsUnderParentAndKeepsTheEvent(t *testing.T) {
+	logs, spans := install(t)
+	err := Run(context.Background(), "job", func(ctx context.Context) error {
+		return Step(ctx, "rank", func(ctx context.Context) error {
+			FromContext(ctx).Set(attrs.Kfo11ySearchIndexName.String("documents"))
+			return nil
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ended := spans.Ended()
+	if len(ended) != 2 {
+		t.Fatalf("got %d spans, want 2", len(ended))
+	}
+	step, job := ended[0], ended[1]
+	if step.Name() != "rank" || step.SpanKind() != trace.SpanKindInternal {
+		t.Errorf("step span = %q kind %v", step.Name(), step.SpanKind())
+	}
+	if step.Parent().SpanID() != job.SpanContext().SpanID() {
+		t.Error("step span is not a child of the job span")
+	}
+	if step.Status().Code != codes.Unset {
+		t.Errorf("status = %v", step.Status())
+	}
+	_, a := only(t, logs)
+	if a[attrs.Kfo11ySearchIndexName].AsString() != "documents" {
+		t.Error("attribute set inside Step did not reach the job's wide event")
+	}
+}
+
+func TestStepErrorSetsStatusWithoutSpanEvents(t *testing.T) {
+	_, spans := install(t)
+	err := Step(context.Background(), "rank", func(context.Context) error {
+		return fmt.Errorf("wrap: %w", typedErr("index_missing"))
+	})
+	if err == nil || err.Error() != "wrap: index_missing" {
+		t.Errorf("Step must return fn's error, got %v", err)
+	}
+
+	span := spans.Ended()[0]
+	if span.Status().Code != codes.Error || span.Status().Description != "index_missing" {
+		t.Errorf("status = %v", span.Status())
+	}
+	var errType string
+	for _, kv := range span.Attributes() {
+		if kv.Key == attrs.ErrorType {
+			errType = kv.Value.AsString()
+		}
+	}
+	if errType != "index_missing" {
+		t.Errorf("error.type = %q", errType)
+	}
+	if n := len(span.Events()); n != 0 {
+		t.Errorf("got %d span events, want none", n)
+	}
+}
+
+func TestLogEmitsNamedCorrelatedEvent(t *testing.T) {
+	logs, spans := install(t)
+	ctx, span := otel.Tracer("test").Start(context.Background(), "parent")
+	Log(ctx, "kfo11y.test.happened", otellog.SeverityWarn,
+		attrs.Kfo11ySearchIndexName.String("documents"),
+		attribute.String("kfo11y.long", strings.Repeat("a", 2000)),
+	)
+	span.End()
+
+	rec, a := only(t, logs)
+	if rec.EventName() != "kfo11y.test.happened" {
+		t.Errorf("EventName = %q", rec.EventName())
+	}
+	if rec.Severity() != otellog.SeverityWarn || rec.SeverityText() != "WARN" {
+		t.Errorf("severity = %v / %q", rec.Severity(), rec.SeverityText())
+	}
+	if rec.TraceID() != spans.Ended()[0].SpanContext().TraceID() {
+		t.Error("log record is not correlated with the span in ctx")
+	}
+	if a[attrs.Kfo11ySearchIndexName].AsString() != "documents" {
+		t.Error("attribute missing")
+	}
+	if !a[attrs.Kfo11yWideEventTruncated].AsBool() {
+		t.Error("limits were not applied")
 	}
 }

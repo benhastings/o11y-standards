@@ -25,7 +25,7 @@ import { recordApiCall } from './interaction';
 
 export interface TelemetryConfig {
   serviceName: string;
-  /** Product area, e.g. "policy". Same value the Go APIs use. */
+  /** Product area, e.g. "search". Same value the Go APIs use. */
   serviceNamespace: string;
   serviceVersion: string;
   team: string;

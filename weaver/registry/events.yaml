@@ -39,11 +39,12 @@ groups:
           conditionally_required: Once the caller has been authenticated.
       - ref: kfo11y.user.tier
         requirement_level: recommended
-      - ref: kfo11y.authz.decision
+      - ref: kfo11y.search.index.name
         requirement_level:
-          conditionally_required: If the request evaluated an authorization decision.
-      - ref: kfo11y.authz.policy.id
-        requirement_level: recommended
+          conditionally_required: If the request queried a search index.
+      - ref: kfo11y.search.result.count
+        requirement_level:
+          conditionally_required: If the request returned search results.
       - ref: kfo11y.db.query.count
         requirement_level: recommended
       - ref: kfo11y.db.query.duration
@@ -103,7 +104,7 @@ groups:
         requirement_level: required
       - ref: error.type
         requirement_level:
-          conditionally_required: If the outcome is not success or denied.
+          conditionally_required: If the outcome is not success.
       - ref: user.id
         requirement_level:
           conditionally_required: Once the user has signed in.
@@ -114,3 +115,37 @@ groups:
         requirement_level: recommended
       - ref: kfo11y.wide_event.truncated
         requirement_level: opt_in
+
+  # Point-in-time events: something that happens outside a request or job and
+  # changes the service's state. Not wide events: no request context, no
+  # wide-event size guardrail. Emitted once per occurrence, correlated to the
+  # active span if there is one.
+  - id: event.kfo11y.search.index.activation
+    type: event
+    name: kfo11y.search.index.activation
+    stability: development
+    brief: A search index snapshot was loaded and made live in this process, or failed to.
+    note: >-
+      Emitted once per activation attempt. On failure the previous snapshot
+      stays live. Severity is INFO on success, ERROR otherwise. Joined to
+      request events by time and kfo11y.search.index.name, it answers "which
+      index was live when this search ran?"
+    attributes:
+      - ref: kfo11y.search.index.name
+        requirement_level: required
+      - ref: kfo11y.search.index.revision
+        requirement_level: required
+      - ref: kfo11y.search.index.previous_revision
+        requirement_level:
+          conditionally_required: If a snapshot was live before this one.
+      - ref: kfo11y.search.index.document.count
+        requirement_level:
+          conditionally_required: If the outcome is success.
+      - ref: kfo11y.outcome
+        requirement_level: required
+      - ref: error.type
+        requirement_level:
+          conditionally_required: If the outcome is not success.
+      - ref: kfo11y.duration
+        brief: Time to fetch, load and swap in the snapshot, in seconds.
+        requirement_level: recommended

@@ -102,9 +102,9 @@ The fix is to wrap the work in `wide.Run`, or make the call inside a handler.
      - remote: https://raw.githubusercontent.com/benhastings/o11y-standards/v0.1.0/ci/weaver.gitlab-ci.yml
 
    variables:
-     O11Y_SERVICE_NAME: policy-api
-     O11Y_SERVICE_NAMESPACE: policy
-     O11Y_SERVICE_TEAM: policy-team
+     O11Y_SERVICE_NAME: search-api
+     O11Y_SERVICE_NAMESPACE: search
+     O11Y_SERVICE_TEAM: search-team
      O11Y_JOB_IMAGE: golang:1.26        # your build image; it needs curl
    ```
 
@@ -130,9 +130,9 @@ variables:
 
 ```text
 # o11y-smoke.routes — METHOD PATH EXPECTED_STATUS [Header:Value ...]
-GET  /v1/policies/p-1    200  X-User-Id:usr_1
-GET  /v1/policies/p-404  404  X-User-Id:usr_1
-GET  /v1/policies/p-1    401
+GET  /v1/documents/doc-1    200  X-User-Id:usr_1
+GET  /v1/documents/doc-404  404  X-User-Id:usr_1
+GET  /v1/documents/doc-1    401
 ```
 
 ## Report mode → enforce mode
@@ -153,7 +153,7 @@ scripts/gate-local.sh start
 
 # terminal 2 — in your service
 OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317 OTEL_EXPORTER_OTLP_PROTOCOL=grpc \
-DEPLOYMENT_ENVIRONMENT=development SERVICE_TEAM=policy-team SERVICE_NAMESPACE=policy \
+DEPLOYMENT_ENVIRONMENT=development SERVICE_TEAM=search-team SERVICE_NAMESPACE=search \
 SERVICE_VERSION=0.0.0-dev \
   go test -tags=o11ysmoke -run TestTelemetrySmoke ./...
 

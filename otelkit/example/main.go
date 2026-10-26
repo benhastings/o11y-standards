@@ -1,6 +1,7 @@
-// Command example is a reference policy API showing the otelkit patterns:
-// setup and shutdown, the wide HTTP middleware, enrichment from auth, cache,
-// database and authorization code, and a background job.
+// Command example is a reference search API showing the otelkit patterns:
+// setup and shutdown, the wide HTTP middleware, enrichment from caller,
+// cache, database and search code, a point-in-time event, and a background
+// job.
 package main
 
 import (
@@ -22,9 +23,9 @@ func main() {
 	defer stop()
 
 	shutdown, err := otelkit.Setup(ctx, otelkit.Config{
-		ServiceName:      "example-policy-api",
-		ServiceNamespace: "policy",
-		Team:             "policy-team",
+		ServiceName:      "example-search-api",
+		ServiceNamespace: "search",
+		Team:             "search-team",
 	})
 	if err != nil {
 		log.Fatalf("telemetry setup: %v", err)
@@ -38,6 +39,9 @@ func main() {
 	}()
 
 	app := newApp()
+	if err := app.activateIndex(ctx, "example-1", exampleSnapshot); err != nil {
+		log.Fatalf("search index: %v", err)
+	}
 	go app.refreshLoop(ctx)
 
 	srv := &http.Server{

@@ -17,7 +17,7 @@ groups:
         note: >-
           Replaces the earlier `service.team`, which sat inside the
           OpenTelemetry-owned `service.*` namespace.
-        examples: ["policy-team", "identity-team", "platform-team"]
+        examples: ["search-team", "catalog-team", "platform-team"]
 
   - id: registry.kfo11y.user
     type: attribute_group
@@ -58,12 +58,6 @@ groups:
               value: "success"
               brief: The work completed as intended.
               stability: development
-            - id: denied
-              value: "denied"
-              brief: >-
-                The work completed and the answer was "no" (for example an
-                authorization deny). This is a correct result, not an error.
-              stability: development
             - id: client_error
               value: "client_error"
               brief: The caller sent a request that could not be served (4xx).
@@ -84,34 +78,47 @@ groups:
         brief: High-level result of the unit of work.
         examples: ["success", "upstream_error"]
 
-  - id: registry.kfo11y.authz
+  - id: registry.kfo11y.search
     type: attribute_group
-    display_name: kfo11y authorization
-    brief: Authorization decision context for the policy services.
+    display_name: kfo11y search
+    brief: Search context for services that query or serve a search index.
     attributes:
-      - id: kfo11y.authz.decision
-        type:
-          members:
-            - id: allow
-              value: "allow"
-              brief: Access granted.
-              stability: development
-            - id: deny
-              value: "deny"
-              brief: Access refused.
-              stability: development
-            - id: indeterminate
-              value: "indeterminate"
-              brief: No decision could be reached (missing policy, evaluation error).
-              stability: development
-        stability: development
-        brief: Result of the authorization evaluation.
-        examples: ["allow"]
-      - id: kfo11y.authz.policy.id
+      - id: kfo11y.search.index.name
         type: string
         stability: development
-        brief: Identifier of the policy that produced the decision.
-        examples: ["pol-1842"]
+        brief: Logical name of the search index the work read from.
+        note: >-
+          One value per index, so it's bounded and can be a rollup dimension.
+          Never put a version or date in the name: "products", not
+          "products-v3". The service's version is service.version on the
+          resource; the snapshot's is kfo11y.search.index.revision.
+        examples: ["documents", "products"]
+      - id: kfo11y.search.result.count
+        type: int
+        stability: development
+        brief: Number of results returned to the caller.
+        note: >-
+          Zero is a correct answer, not an error: an empty result keeps the
+          outcome `success`.
+        examples: [20, 0]
+      - id: kfo11y.search.index.revision
+        type: string
+        stability: development
+        brief: Revision of a search index snapshot (build ID, generation, or content digest).
+        note: >-
+          Low-cardinality over time: one value per published snapshot. Lets you
+          answer "which index was live when this search ran?"
+        examples: ["2026-10-22.3", "sha256:9f2c41d0"]
+      - id: kfo11y.search.index.previous_revision
+        type: string
+        stability: development
+        brief: Revision of the snapshot that was live before this activation.
+        examples: ["2026-10-22.2"]
+      - id: kfo11y.search.index.document.count
+        type: int
+        stability: development
+        brief: Number of documents in the index snapshot.
+        examples: [184213]
 
   - id: registry.kfo11y.dependencies
     type: attribute_group
@@ -146,7 +153,7 @@ groups:
         type: string[]
         stability: development
         brief: Feature flags that were enabled for this unit of work.
-        examples: [["new_policy_editor"]]
+        examples: [["new_ranking"]]
 
   - id: registry.kfo11y.job
     type: attribute_group
@@ -157,7 +164,7 @@ groups:
         type: string
         stability: development
         brief: Low-cardinality name of the job or message handler.
-        examples: ["policy-cache-refresh", "audit-export"]
+        examples: ["search-cache-refresh", "index-compaction"]
 
   - id: registry.kfo11y.ui
     type: attribute_group
@@ -168,12 +175,12 @@ groups:
         type: string
         stability: development
         brief: Route template of the view, not the literal URL.
-        examples: ["/policies/:policyId"]
+        examples: ["/documents/:documentId"]
       - id: kfo11y.ui.action
         type: string
         stability: development
         brief: Low-cardinality name of the user action.
-        examples: ["save_policy", "load_policy_list"]
+        examples: ["run_search", "open_document"]
       - id: kfo11y.ui.api_call.count
         type: int
         stability: development
