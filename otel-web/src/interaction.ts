@@ -40,7 +40,7 @@ export class Interaction {
     Object.assign(this.attrs, attrs);
   }
 
-  /** Record a business result such as a denied action. */
+  /** Override the derived outcome, e.g. client_error when the API rejected the user's input. */
   setOutcome(outcome: Outcome): void {
     this.outcome = outcome;
   }
@@ -78,7 +78,7 @@ export function recordApiCall(status: number): void {
  * Run fn as one tracked user interaction: an INTERNAL span that parents the
  * API calls fn makes, plus one kfo11y.ui.interaction.summary event.
  *
- * action and route must be low-cardinality: "save_policy", "/policies/:policyId".
+ * action and route must be low-cardinality: "run_search", "/documents/:documentId".
  */
 export function trackInteraction<T>(
   action: string,
@@ -111,7 +111,7 @@ export function trackInteraction<T>(
 }
 
 function emit(ix: Interaction): void {
-  const failed = ix.outcome !== 'success' && ix.outcome !== 'denied';
+  const failed = ix.outcome !== 'success';
   // The registry requires error.type whenever the interaction failed.
   if (failed) ix.errorType ??= '_OTHER';
   const attributes: Attributes = {

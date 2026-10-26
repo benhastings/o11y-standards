@@ -25,25 +25,36 @@ import (
 func TestTelemetrySmoke(t *testing.T) {
 	ctx := context.Background()
 	shutdown, err := otelkit.Setup(ctx, otelkit.Config{
-		ServiceName:      "example-policy-api",
-		ServiceNamespace: "policy",
-		Team:             "policy-team",
+		ServiceName:      "example-search-api",
+		ServiceNamespace: "search",
+		Team:             "search-team",
 	})
 	if err != nil {
 		t.Fatalf("telemetry setup: %v", err)
 	}
 
-	srv := httptest.NewServer(wide.Handler(newApp().routes()))
+	app := newApp()
+	if err := app.activateIndex(ctx, "example-1", exampleSnapshot); err != nil {
+		t.Fatalf("search index: %v", err)
+	}
+	// A failed activation too, so the gate checks the event's failure shape.
+	failing := func() ([]document, error) { return nil, context.DeadlineExceeded }
+	if err := app.activateIndex(ctx, "example-2", failing); err == nil {
+		t.Fatal("failing snapshot activated")
+	}
+
+	srv := httptest.NewServer(wide.Handler(app.routes()))
 
 	cases := []struct {
 		name, method, path, user, body string
 		want                           int
 	}{
-		{"policy found", "GET", "/v1/policies/p-1", "usr_1", "", 200},
-		{"policy missing", "GET", "/v1/policies/p-404", "usr_1", "", 404},
-		{"unauthenticated", "GET", "/v1/policies/p-1", "", "", 401},
-		{"authz allow", "POST", "/v1/authz/allow", "usr_1", `{"resource":"r1","action":"read"}`, 200},
-		{"authz deny", "POST", "/v1/authz/allow", "usr_2", `{"resource":"r1","action":"delete"}`, 403},
+		{"document found", "GET", "/v1/documents/doc-1", "usr_1", "", 200},
+		{"document missing", "GET", "/v1/documents/doc-404", "usr_1", "", 404},
+		{"unauthenticated", "GET", "/v1/documents/doc-1", "", "", 401},
+		{"search hits", "GET", "/v1/search?q=release", "usr_1", "", 200},
+		{"search no results", "GET", "/v1/search?q=zzz", "usr_2", "", 200},
+		{"search missing query", "GET", "/v1/search", "usr_1", "", 400},
 		{"unknown route", "GET", "/nope", "usr_1", "", 404},
 	}
 	for _, c := range cases {
@@ -65,7 +76,7 @@ func TestTelemetrySmoke(t *testing.T) {
 	srv.Close()
 
 	// One run of each background job, so kfo11y.job.summary is checked too.
-	if err := wide.Run(ctx, "policy-cache-refresh", func(context.Context) error { return nil }); err != nil {
+	if err := wide.Run(ctx, "search-cache-refresh", func(context.Context) error { return nil }); err != nil {
 		t.Errorf("job: %v", err)
 	}
 

@@ -26,7 +26,7 @@ import (
 type Config struct {
 	// ServiceName (service.name). OTEL_SERVICE_NAME overrides it.
 	ServiceName string
-	// ServiceNamespace (service.namespace): the product area, e.g. "policy".
+	// ServiceNamespace (service.namespace): the product area, e.g. "search".
 	// Not the Kubernetes namespace, and never environment-specific.
 	// SERVICE_NAMESPACE overrides it.
 	ServiceNamespace string

@@ -83,7 +83,8 @@ forensics.
    UI interactions emit `kfo11y.ui.interaction.summary`. The otelkit and
    otel-web helpers do this; you enrich, they emit.
 2. **Enrich as you go.** Auth adds the caller, data access adds counts and
-   time, the authz engine adds the decision, error handling adds `error.type`.
+   time, the search code adds the index and result count, error handling adds
+   `error.type`.
 3. **Use registry attributes only.** Every attribute must be defined in
    OpenTelemetry semconv or `weaver/registry/`. The gate fails unknown ones.
 4. **No new span events.** Don't call `AddEvent` or `RecordException` in new
@@ -92,9 +93,10 @@ forensics.
 5. **No free-text logs for operations.** `log.Printf` and `fmt.Println` aren't
    telemetry. Local debugging output is fine; it isn't shipped or relied on.
 6. **Point-in-time events get a name and a schema.** Something that happens
-   outside a request — a cache reload, a policy bundle activation, a
+   outside a request — a cache reload, a search index activation, a
    certificate rotation — is a named log-based event defined in the registry,
-   not a sentence.
+   not a sentence. The first is `kfo11y.search.index.activation`
+   ([01](01-telemetry-standard.md#point-in-time-events)).
 7. **Errors are classified, not narrated.** Put a low-cardinality class in
    `error.type` (implement `ErrorType()` on your error types). Messages and
    stack traces don't go on the wide event.
@@ -107,18 +109,18 @@ sequenceDiagram
     participant M as wide.Handler<br/>(otelhttp + event)
     participant A as Auth
     participant D as Data / Cache
-    participant Z as Authz engine
+    participant Z as Search index
     participant O as OTel Logs SDK
-    C->>M: POST /v1/authz/allow
+    C->>M: GET /v1/search?q=…
     M->>M: start SERVER span, start event<br/>http.request.method
     M->>A: next.ServeHTTP
     A->>M: Set user.id, kfo11y.user.team.id
-    A->>D: lookup policy
+    A->>D: load caller preferences
     D->>M: Set kfo11y.cache.hit=false<br/>Track kfo11y.db.query.count/.duration
-    A->>Z: evaluate
-    Z->>M: Set kfo11y.authz.decision=deny<br/>SetOutcome(denied)
-    A-->>C: 403
-    M->>M: http.route, status, kfo11y.duration<br/>rename span "POST /v1/authz/allow"
+    A->>Z: query
+    Z->>M: Set kfo11y.search.index.name,<br/>kfo11y.search.result.count=0
+    A-->>C: 200 (no results)
+    M->>M: http.route, status, kfo11y.duration<br/>rename span "GET /v1/search"
     M->>O: Emit kfo11y.request.summary<br/>(trace_id/span_id from context)
     M->>M: end span
 ```
@@ -130,26 +132,26 @@ As the collector receives it (simplified OTLP):
 ```json
 {
   "resource": {
-    "service.name": "policy-api", "service.namespace": "policy", "service.version": "3.4.1",
-    "kfo11y.service.team": "policy-team", "deployment.environment.name": "production",
-    "vcs.ref.head.revision": "8f7a2b3c", "k8s.pod.name": "policy-api-7f8g9-2x5",
+    "service.name": "search-api", "service.namespace": "search", "service.version": "3.4.1",
+    "kfo11y.service.team": "search-team", "deployment.environment.name": "production",
+    "vcs.ref.head.revision": "8f7a2b3c", "k8s.pod.name": "search-api-7f8g9-2x5",
     "cloud.availability_zone": "us-east-1a"
   },
   "event_name": "kfo11y.request.summary",
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
   "span_id": "00f067aa0ba902b7",
   "severity_text": "INFO",
-  "body": "POST /v1/authz/allow 403 denied",
+  "body": "GET /v1/search 200 success",
   "attributes": {
-    "http.request.method": "POST",
-    "http.route": "/v1/authz/allow",
-    "http.response.status_code": 403,
+    "http.request.method": "GET",
+    "http.route": "/v1/search",
+    "http.response.status_code": 200,
     "kfo11y.duration": 0.0124,
-    "kfo11y.outcome": "denied",
+    "kfo11y.outcome": "success",
     "user.id": "usr_99",
     "kfo11y.user.team.id": "partner-a",
-    "kfo11y.authz.decision": "deny",
-    "kfo11y.authz.policy.id": "pol-1842",
+    "kfo11y.search.index.name": "documents",
+    "kfo11y.search.result.count": 0,
     "kfo11y.cache.hit": false,
     "kfo11y.db.query.count": 1,
     "kfo11y.db.query.duration": 0.0031
@@ -157,10 +159,10 @@ As the collector receives it (simplified OTLP):
 }
 ```
 
-Severity follows the outcome: `success` and `denied` are INFO,
-`client_error` is WARN, `upstream_error` and `server_error` are ERROR. A 403
-is `client_error` by default; handlers that return a deliberate authorization
-deny call `SetOutcome(denied)` so a correct "no" isn't counted as an error.
+Severity follows the outcome: `success` is INFO, `client_error` is WARN,
+`upstream_error` and `server_error` are ERROR. A search that finds nothing
+is still `success`: the service answered correctly, and
+`kfo11y.search.result.count` = 0 says what the answer was.
 
 ## Guardrails
 
@@ -201,8 +203,8 @@ GROUP BY service, route
 ORDER BY requests DESC;
 ```
 
-**Availability and latency SLIs** (5-minute buckets). `denied` and
-`client_error` count as good: the service answered correctly.
+**Availability and latency SLIs** (5-minute buckets). `client_error` counts
+as good: the service answered correctly.
 
 ```sql
 SELECT
@@ -303,7 +305,7 @@ service:
 
 **Doesn't this duplicate what's on the span?** Only a handful of keys
 (`user.id`, `kfo11y.user.team.id`, `kfo11y.outcome`, `error.type`,
-`kfo11y.authz.decision`) are copied onto the span, so trace search works. The
+`kfo11y.search.index.name`) are copied onto the span, so trace search works. The
 span models topology and timing; the event is the record.
 
 **What about debugging locally?** Set `OTEL_LOGS_EXPORTER=console` and

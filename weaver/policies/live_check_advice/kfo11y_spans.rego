@@ -11,7 +11,7 @@ deny contains kfo11y_finding(
 	"kfo11y_high_cardinality_span_name",
 	"violation",
 	{"span_name": span.name},
-	sprintf("Span name '%s' contains an identifier. Use the route template (e.g. 'GET /v1/policies/{id}').", [span.name]),
+	sprintf("Span name '%s' contains an identifier. Use the route template (e.g. 'GET /v1/documents/{id}').", [span.name]),
 ) if {
 	span := input.sample.span
 	regex.match(`(/[0-9]+(/|$| ))|([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`, span.name)

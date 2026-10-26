@@ -79,6 +79,7 @@ images. The design keeps internet access to one place:
 | **Browser telemetry delivery and auth** | Tabled. otel-web posts OTLP/HTTP to a collector (`/otlp` behind the UI's ingress, or `dev/` locally). We may need a small ingest service in front of the collector for auth, rate limits and size caps. | SRE + platform |
 | **Non-standard environment names** | `deployment.environment.name` allows `production`, `staging`, `test`, `development`, `ci`. Add any others your clusters use to `weaver/policy-data/kfo11y.yaml`. | Each team, via MR |
 | **Telemetry retention** | Raw spans and wide events keep the exporter's short TTL; the metric rollups in `dev/rollups.sql` keep 13 months. Both numbers are placeholders. | SRE + platform |
+| **First point-in-time event** | `kfo11y.search.index.activation` (proposed): one event per search index snapshot activation attempt, with index name, revision, previous revision, document count, outcome and duration ([01](01-telemetry-standard.md#point-in-time-events)). Open: is a whole snapshot the right unit for how our search services load indexes, and should request events also carry the live `kfo11y.search.index.revision`? | SRE + search-team |
 | **Runner capabilities** | The Kubernetes executor resolves service aliases (`weaver`) to localhost, and rootless buildah (`vfs`, `chroot`) works on our runners. | Confirm on first pipeline |
 
 ## To confirm on the first real pipeline

@@ -18,13 +18,13 @@ surface small.
 import { initTelemetry } from '@kfo11y/otel-web';
 
 initTelemetry({
-  serviceName: 'policy-ui',
-  serviceNamespace: 'policy',
+  serviceName: 'search-ui',
+  serviceNamespace: 'search',
   serviceVersion: import.meta.env.VITE_APP_VERSION,
-  team: 'policy-team',
+  team: 'search-team',
   environment: import.meta.env.VITE_DEPLOYMENT_ENVIRONMENT, // production | staging | ...
   gitSha: import.meta.env.VITE_GIT_SHA,
-  propagateTo: [/^https:\/\/api\.policy\.example\.com\//],
+  propagateTo: [/^https:\/\/api\.search\.example\.com\//],
 });
 
 createRoot(document.getElementById('root')!).render(<App />);
@@ -68,23 +68,23 @@ from your router config, not `location.pathname`.
 ```tsx
 import { useTrackedAction } from '@kfo11y/otel-web';
 
-export function PolicyEditor({ policyId }: { policyId: string }) {
-  const track = useTrackedAction('/policies/:policyId');
+export function SearchBox() {
+  const track = useTrackedAction('/search');
 
-  const onSave = () =>
-    track('save_policy', async (ix) => {
-      const res = await fetch(`${API}/v1/policies/${policyId}`, { method: 'PUT', body });
-      if (res.status === 403) ix.setOutcome('denied');
-      else if (!res.ok) throw new Error(`save failed: ${res.status}`);
+  const onSearch = (q: string) =>
+    track('run_search', async () => {
+      const res = await fetch(`${API}/v1/search?q=${encodeURIComponent(q)}`);
+      if (!res.ok) throw new Error(`search failed: ${res.status}`);
+      setResults(await res.json()); // an empty list is still success
     });
 
-  return <button onClick={onSave}>Save</button>;
+  return <SearchInput onSubmit={onSearch} />;
 }
 ```
 
 What you get for each call:
 
-- an INTERNAL span `ui.save_policy` whose children are the `fetch` CLIENT
+- an INTERNAL span `ui.run_search` whose children are the `fetch` CLIENT
   spans (which continue into the Go API's SERVER span);
 - one `kfo11y.ui.interaction.summary` with `kfo11y.ui.action`, `kfo11y.ui.route`,
   `kfo11y.duration`, `kfo11y.outcome`, `kfo11y.ui.api_call.count`,
@@ -93,9 +93,10 @@ What you get for each call:
 
 Outcome rules: `success` if nothing failed; `upstream_error` if any API call
 failed (network error or status ≥ 400); `ui_error` if your code threw without
-an API failure; or whatever you set with `ix.setOutcome` (e.g. `denied`).
+an API failure; or whatever you set with `ix.setOutcome`. A search that finds nothing is
+`success`.
 
-Need extra context? `ix.set({ 'kfo11y.authz.policy.id': policyId })`. Keys
+Need extra context? `ix.set({ 'kfo11y.search.index.name': 'documents' })`. Keys
 must exist in the registry.
 
 ## What to track
@@ -110,9 +111,9 @@ A good test: if a user would report "X didn't work," X is an interaction.
 
 ## Don'ts
 
-- Don't put form contents, policy bodies, or tokens in attributes.
-- Don't use IDs in `action` or `route`: `'/policies/:policyId'`, not
-  `'/policies/pol-1842'`.
+- Don't put form contents, search queries, or tokens in attributes.
+- Don't use IDs in `action` or `route`: `'/documents/:documentId'`, not
+  `'/documents/doc-1842'`.
 - Don't start a `fetch` outside `track` if you can help it: it becomes a
   CLIENT root span, which the hygiene query in [03](03-weaver-gate.md) flags.
 

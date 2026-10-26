@@ -18,12 +18,12 @@ how it's used.
    Org attributes exist only for concepts semconv doesn't cover, and they all
    live under `kfo11y.` so they can never collide with a future OTel name.
 2. **Names are low-cardinality; values can be high-cardinality.** Span names,
-   event names, and `http.route` are templates. User IDs, policy IDs, and
+   event names, and `http.route` are templates. User IDs, document IDs, and
    tenants go in attribute values.
 3. **Metadata comes from automation, not from hand-typed code.** Identity comes
    from the deployment and CI; Kubernetes and cloud metadata come from the
    collector. The only metadata your code adds is what only the request knows:
-   who called, what was decided, what it cost.
+   who called, what it found, what it cost.
 4. **One unit of work → one span tree and one wide event.** See
    [02](02-logging-standard-wide-events.md).
 5. **The wide event is the record; the span is the shape.** Anything a metric,
@@ -48,7 +48,7 @@ attached to everything the process sends.
 flowchart LR
     ci["CI/CD and deploy manifest<br/>SERVICE_VERSION, SERVICE_TEAM,<br/>SERVICE_NAMESPACE, DEPLOYMENT_ENVIRONMENT,<br/>GIT_COMMIT_SHA, POD_UID"]
     sdk["otelkit / otel-web<br/>builds the Resource"]
-    req["Request handling<br/>user.id, kfo11y.user.team.id,<br/>kfo11y.authz.*, kfo11y.db.*"]
+    req["Request handling<br/>user.id, kfo11y.user.team.id,<br/>kfo11y.search.*, kfo11y.db.*"]
     col["OTel Collector<br/>k8sattributes + resourcedetection<br/>k8s.*, cloud.*"]
     store[("ClickHouse<br/>traces, metrics, logs")]
     ci --> sdk
@@ -63,12 +63,12 @@ Set once per process and sent with every span, metric, and log record.
 
 | Attribute | Required | Source | Example | Gate check |
 |---|---|---|---|---|
-| `service.name` | Yes | `OTEL_SERVICE_NAME` / otelkit config | `policy-api` | CI (Rego) |
-| `service.namespace` | Yes | `SERVICE_NAMESPACE` | `policy` | CI (Rego) |
+| `service.name` | Yes | `OTEL_SERVICE_NAME` / otelkit config | `search-api` | CI (Rego) |
+| `service.namespace` | Yes | `SERVICE_NAMESPACE` | `search` | CI (Rego) |
 | `service.version` | Yes | `SERVICE_VERSION` from CI | `1.4.32` | CI (Rego) |
 | `service.instance.id` | Yes | `POD_UID` (downward API); otelkit falls back to a UUID | `7d3c…` | CI (Rego) |
 | `deployment.environment.name` | Yes | `DEPLOYMENT_ENVIRONMENT` | `production` | CI (Rego, allowlist) |
-| `kfo11y.service.team` | Yes | `SERVICE_TEAM` / pod label | `policy-team` | CI (Rego) |
+| `kfo11y.service.team` | Yes | `SERVICE_TEAM` / pod label | `search-team` | CI (Rego) |
 | `vcs.ref.head.revision` | Yes | Go build info; `GIT_COMMIT_SHA` fallback | `8f7a2b3c` | CI (Rego) |
 | `service.criticality` | Recommended | Deploy manifest | `critical` | Registry |
 | `k8s.cluster.name`, `k8s.namespace.name`, `k8s.deployment.name`, `k8s.pod.name`, `k8s.pod.uid`, `k8s.node.name` | Yes | Collector `k8sattributes` | — | Staging live-check (phase 3) |
@@ -77,15 +77,15 @@ Set once per process and sent with every span, metric, and log record.
 Notes:
 
 - **`service.namespace` is the product area**, not the Kubernetes namespace
-  and never environment-specific. Values like `policy-dev` mix the two; split
-  them into `service.namespace=policy` and `deployment.environment.name=development`.
+  and never environment-specific. Values like `search-dev` mix the two; split
+  them into `service.namespace=search` and `deployment.environment.name=development`.
 - **`deployment.environment.name`** should use the OpenTelemetry well-known
   values `production`, `staging`, `test`, `development` wherever they fit.
   Local values (such as `ci`) are allowed only once they're in
   `weaver/policy-data/kfo11y.yaml`. Set it explicitly; don't derive it from
   `metadata.namespace`.
 - `service.criticality` is new in semconv and still alpha, but it's a good fit
-  for a critical authn/z service: alert routing and sampling can key off it.
+  for a critical service: alert routing and sampling can key off it.
 - The SDKs also add `telemetry.sdk.*`, `process.*`, `os.*`, `host.name` and
   `container.id` on their own. Nothing depends on them.
 
@@ -94,11 +94,11 @@ Deployment snippet:
 ```yaml
 env:
   - name: OTEL_SERVICE_NAME
-    value: "policy-api"
+    value: "search-api"
   - name: SERVICE_NAMESPACE
-    value: "policy"
+    value: "search"
   - name: SERVICE_TEAM
-    value: "policy-team"
+    value: "search-team"
   - name: SERVICE_VERSION
     value: "1.4.32"            # injected by CI
   - name: DEPLOYMENT_ENVIRONMENT
@@ -138,8 +138,8 @@ Columns: **Request** = `kfo11y.request.summary`, **Job** =
 | `kfo11y.user.team.id` | string | C | — | C |
 | `kfo11y.user.tier` | string | Rec | — | — |
 | `session.id` | string | — | — | Rec |
-| `kfo11y.authz.decision` | enum | C | — | — |
-| `kfo11y.authz.policy.id` | string | Rec | — | — |
+| `kfo11y.search.index.name` | string | C | — | — |
+| `kfo11y.search.result.count` | int | C | — | — |
 | `kfo11y.db.query.count` | int | Rec | Rec | — |
 | `kfo11y.db.query.duration` | double (s) | Rec | Rec | — |
 | `kfo11y.cache.hit` | boolean | Rec | — | — |
@@ -156,20 +156,21 @@ Conditions and notes:
 - **`http.route`**: if a route matched. A template, never the raw path.
 - **`http.response.status_code`**: if a response was sent.
 - **`kfo11y.job.name`, `kfo11y.ui.action`, `kfo11y.ui.route`**: low-cardinality
-  names and templates, e.g. `policy-cache-refresh`, `save_policy`,
-  `/policies/:policyId`.
+  names and templates, e.g. `search-cache-refresh`, `run_search`,
+  `/documents/:documentId`.
 - **`kfo11y.duration`**: end to end, in seconds. Spans have their own start
   and end.
 - **`kfo11y.outcome`**: see [values](#enum-values).
 - **`error.type`**: request and job events, if the outcome is `upstream_error`
-  or `server_error`; UI events, if the outcome isn't `success` or `denied`. A
+  or `server_error`; UI events, if the outcome isn't `success`. A
   class, never a message.
 - **`user.id`, `kfo11y.user.team.id`**: once the caller is authenticated (UI:
   signed in). `kfo11y.user.team.id` is the tenant; `kfo11y.user.tier` is its
   service tier.
 - **`session.id`**: otel-web sets it once per page load.
-- **`kfo11y.authz.decision`**: if an authorization decision was evaluated;
-  `kfo11y.authz.policy.id` names the policy that made it.
+- **`kfo11y.search.index.name`, `kfo11y.search.result.count`**: if the
+  request queried a search index. Zero results is a correct answer, so the
+  outcome stays `success`.
 - **`kfo11y.db.*`, `kfo11y.cache.*`**: roll-ups for the unit of work.
   Per-query detail stays on CLIENT spans.
 - **`kfo11y.ui.api_call.error.count`**: API calls that failed with a network
@@ -181,7 +182,7 @@ Conditions and notes:
 attributes (`http.request.method`, `http.route`, `http.response.status_code`)
 and `kfo11y.ui.action` / `kfo11y.ui.route` are native span attributes too.
 otelkit also copies `kfo11y.outcome`, `error.type`, `user.id`,
-`kfo11y.user.team.id` and `kfo11y.authz.decision` onto the Go span. otel-web
+`kfo11y.user.team.id` and `kfo11y.search.index.name` onto the Go span. otel-web
 doesn't; a failed UI interaction puts `error.type` in the span status
 instead. Job spans are named by `kfo11y.job.name`. Everything else is on the
 event only, and the event is the source of truth.
@@ -203,12 +204,56 @@ in the collector with the `transform` processor before export.
 | Attribute | Value | Meaning |
 |---|---|---|
 | `kfo11y.outcome` | `success` | Completed as intended |
-| | `denied` | Completed, and the answer was "no" (e.g. an authorization deny). Not an error |
 | | `client_error` | The caller's request couldn't be served (4xx) |
 | | `upstream_error` | A dependency failed (database, cache, another API) |
 | | `server_error` | This service failed |
 | | `ui_error` | Front end only: browser code failed without an API error |
-| `kfo11y.authz.decision` | `allow` / `deny` / `indeterminate` | `indeterminate`: no decision could be reached (missing policy, evaluation error) |
+
+## Point-in-time events
+
+Some things happen outside any request or job and change what the service
+does next: a search index snapshot goes live, a certificate rotates, a config
+reloads. Each is a named log-based event with its own registry definition,
+emitted once per occurrence. They aren't wide events: they carry no request
+context and don't feed the rollups. A failure to make the change is the same
+event with a non-success outcome, at ERROR severity.
+
+**`kfo11y.search.index.activation`**: a search index snapshot was loaded and
+made live in this process, or failed to. On failure the previous snapshot
+stays live.
+
+| Attribute | Type | Level | Notes |
+|---|---|---|---|
+| `kfo11y.search.index.name` | string | R | The index the snapshot belongs to |
+| `kfo11y.search.index.revision` | string | R | Build ID, generation, or content digest of the snapshot being activated |
+| `kfo11y.search.index.previous_revision` | string | C | If a snapshot was live before this one |
+| `kfo11y.search.index.document.count` | int | C | If the outcome is `success` |
+| `kfo11y.outcome` | enum | R | `success`, or `upstream_error` / `server_error` |
+| `error.type` | string | C | If the outcome isn't `success` |
+| `kfo11y.duration` | double (s) | Rec | Time to fetch, load, and swap in the snapshot |
+
+With it, "which index was live when this search ran?" is a join between a
+request event's `Timestamp` and the latest successful activation of the same
+`kfo11y.search.index.name` before it, per `service.instance.id`. It also makes
+a bad snapshot visible as a step change: errors or zero-result searches that
+start at an activation.
+
+```sql
+-- Activations in the last day, newest first.
+SELECT Timestamp, ServiceName, ResourceAttributes['service.instance.id'] AS instance,
+       LogAttributes['kfo11y.search.index.name'] AS index,
+       LogAttributes['kfo11y.search.index.revision'] AS revision,
+       LogAttributes['kfo11y.search.index.previous_revision'] AS previous,
+       LogAttributes['kfo11y.outcome'] AS outcome, LogAttributes['error.type'] AS error_type
+FROM otel_logs
+WHERE EventName = 'kfo11y.search.index.activation'
+  AND Timestamp > now() - INTERVAL 1 DAY
+ORDER BY Timestamp DESC;
+```
+
+To add another point-in-time event, follow
+[Proposing a new attribute](#proposing-a-new-attribute) and define the event
+in `weaver/registry/events.yaml` next to this one.
 
 ## Tracing only
 
@@ -232,7 +277,7 @@ in the collector.
 
 | Rule | Why | Gate check |
 |---|---|---|
-| HTTP server span name is `{method} {route}`, e.g. `GET /v1/policies/{id}` | Bounded cardinality for span-derived RED metrics and GROUP BYs | `kfo11y_high_cardinality_span_name` |
+| HTTP server span name is `{method} {route}`, e.g. `GET /v1/documents/{id}` | Bounded cardinality for span-derived RED metrics and GROUP BYs | `kfo11y_high_cardinality_span_name` |
 | HTTP server spans carry `http.route` (except 404/405) | RED metrics per route | `kfo11y_missing_http_route` |
 | `http.request.method`, `http.response.status_code`, `url.scheme`, `server.address` per HTTP semconv (stable) | Consistent queries | Built-in |
 | A span with no parent is never `CLIENT` | A CLIENT root means context was lost | ClickHouse hygiene query ([03](03-weaver-gate.md#what-it-checks)) |
@@ -261,7 +306,7 @@ it doesn't grow with traffic, users, or deploys.
 | `k8s.cluster.name`, `cloud.region` | Resource | Add once the platform runs more than one cluster or region |
 | `http.request.method`, `http.route`, `http.response.status_code` | Request event | Route is a template, so it's bounded |
 | `kfo11y.outcome`, `error.type` | All events | `error.type` is a class by design |
-| `kfo11y.authz.decision` | Request event | Three values |
+| `kfo11y.search.index.name` | Request event | One value per index |
 | `kfo11y.job.name` | Job event | |
 | `kfo11y.ui.route`, `kfo11y.ui.action` | UI event | |
 | `kfo11y.user.team.id`, `kfo11y.user.tier` | Request event (tenant is on UI events too) | Tenant dimensions, kept in **their own rollup** (without route) so tenants × routes × status never multiplies out. The rollup covers requests; query UI tenant impact on raw events |
@@ -274,20 +319,20 @@ it doesn't grow with traffic, users, or deploys.
 | `kfo11y.db.query.count`, `kfo11y.db.query.duration` | Sums: database share of request time |
 | `kfo11y.cache.hit` | Lookups and hits, for a hit ratio |
 | `kfo11y.cache.retry.count` | Sum |
+| `kfo11y.search.result.count` | Searches, results, and zero-result searches: a zero-result rate |
 | `kfo11y.ui.api_call.count`, `kfo11y.ui.api_call.error.count` | Sums |
 | `kfo11y.wide_event.truncated` | Count: a data-quality signal |
 
 **Drill-down only: never a dimension**
 
 These stay in the raw wide events and spans, and age out with them:
-`user.id`, `session.id`, `kfo11y.authz.policy.id`,
+`user.id`, `session.id`,
 `kfo11y.feature_flags.enabled` (an array; `arrayJoin` it on raw events when
 needed), `service.instance.id`, `k8s.pod.name`, `k8s.pod.uid`,
 `k8s.node.name`, `host.name`, `container.id`, `vcs.ref.head.revision` (group by
 `service.version` instead), `kfo11y.wide_event.dropped_attributes.count`
 (the `truncated` count already flags the problem), `TraceId` / `SpanId`, and everything in
-[Tracing only](#tracing-only). If the number of policies turns out to be
-small, `kfo11y.authz.policy.id` can be promoted to a dimension later.
+[Tracing only](#tracing-only).
 
 ### The rollups
 
@@ -296,7 +341,7 @@ materialized views over `otel_logs`:
 
 | Table | Grain | Dimensions |
 |---|---|---|
-| `kfo11y_request_rollup_1m` | 1 minute | environment, service, namespace, team, version, method, route, status, outcome, error type, authz decision |
+| `kfo11y_request_rollup_1m` | 1 minute | environment, service, namespace, team, version, method, route, status, outcome, error type, search index |
 | `kfo11y_tenant_rollup_5m` | 5 minutes | environment, service, tenant, tier, outcome |
 | `kfo11y_job_rollup_1m` | 1 minute | environment, service, version, job, outcome, error type |
 | `kfo11y_ui_rollup_1m` | 1 minute | environment, service, version, UI route, action, outcome, error type |
@@ -317,7 +362,8 @@ SELECT
     round(errors / total, 4) AS error_rate,
     sum(duration_sum) / total AS mean_s,
     quantilesTDigestMerge(0.5, 0.9, 0.99)(duration_q) AS p50_p90_p99_s,
-    sum(cache_hits) / nullIf(sum(cache_lookups), 0) AS cache_hit_ratio
+    sum(cache_hits) / nullIf(sum(cache_lookups), 0) AS cache_hit_ratio,
+    sum(zero_results) / nullIf(sum(searches), 0) AS zero_result_rate
 FROM kfo11y_request_rollup_1m
 WHERE environment = 'production'
   AND t > now() - INTERVAL 30 DAY
@@ -334,7 +380,7 @@ SELECT
     sumIf(requests, outcome IN ('server_error', 'upstream_error')) / total AS error_rate,
     quantilesTDigestMerge(0.5, 0.99)(duration_q) AS p50_p99_s
 FROM kfo11y_request_rollup_1m
-WHERE service = 'policy-api'
+WHERE service = 'search-api'
   AND t > now() - INTERVAL 7 DAY
 GROUP BY version
 ORDER BY version;

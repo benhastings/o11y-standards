@@ -6,8 +6,8 @@ decisions, placeholders and open questions.
 
 ## What this repo is
 
-The SRE org's telemetry standard and its enforcement, for the authn/z
-platform services. A bootstrap for the 80% solution: get teams onto it, then
+The SRE org's telemetry standard and its enforcement, for the platform's
+services. A bootstrap for the 80% solution: get teams onto it, then
 improve fidelity. See README.md.
 
 Environment:
@@ -24,8 +24,9 @@ Environment:
   asking.
 - **otelkit replaces o11yflow.** Breaking with o11yflow is fine.
 - Keep docs and examples generic: no references to the deployment sector or
-  customer, and no real team or service names. Examples use `policy-api`,
-  `policy-team`, `us-east-1`.
+  customer, and no real team or service names. Examples use a generic
+  search service: `search-api`, `search-ui`, `search-team`, `us-east-1`,
+  and `kfo11y.search.*` attributes. No authn/authz examples or attributes.
 - **Source lives on GitHub** (`benhastings/o11y-standards`, private). Only the
   Weaver gate CI (`.gitlab-ci.yml`, `ci/weaver.gitlab-ci.yml`) is
   GitLab-specific; it's kept (don't delete it) but doesn't run on GitHub and

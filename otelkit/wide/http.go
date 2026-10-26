@@ -53,7 +53,7 @@ func Handler(next http.Handler, opts ...otelhttp.Option) http.Handler {
 }
 
 // SetRoute records the matched route template for routers other than
-// http.ServeMux. Pass the template ("/v1/policies/{id}"), never the raw path.
+// http.ServeMux. Pass the template ("/v1/documents/{id}"), never the raw path.
 func SetRoute(ctx context.Context, route string) {
 	FromContext(ctx).setRoute(route)
 }
