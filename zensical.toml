@@ -17,6 +17,11 @@ nav = [
   { "03 Weaver gate" = "03-weaver-gate.md" },
   { "04 Go guide" = "04-go-guide.md" },
   { "05 Front-end guide" = "05-frontend-guide.md" },
+  { "Guides for service teams" = [
+    { "Metadata standard" = "guides/metadata-standard.md" },
+    { "Wide events" = "guides/wide-events.md" },
+    { "OpenTelemetry Weaver" = "guides/weaver.md" },
+  ] },
 ]
 
 [project.theme]
@@ -48,6 +53,7 @@ attr_list = {}
 tables = {}
 toc.permalink = true
 pymdownx.highlight = {}
+pymdownx.tasklist = { custom_checkbox = true }
 pymdownx.superfences.custom_fences = [
   { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
 ]
