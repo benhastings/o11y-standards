@@ -59,6 +59,13 @@ Repo layout:
   rollups over wide events, see docs/01 "Metric aggregation")
 - `docs/` — 00 team notes, 01 metadata standard, 02 wide events,
   03 gate, 04 Go guide, 05 front-end guide
+- `docs/guides/` — standalone guides for any service team (`myorg.`
+  prefix, no repo tooling). Copies of three Claude Docs on claude.ai, which
+  are the source: Metadata standard (JQ2ziqWMz6eB2CiqbLYyic), Wide events
+  (HmaU42UMtafZecXmxQ5Lut), Weaver (8Q1dWxg3mdgAtNCkFGDPmk). To refresh,
+  export each as markdown, drop the byline, keep the "Standalone guide"
+  note, and replace the Weaver doc's widget placeholder with the Mermaid
+  diagram already in `guides/weaver.md`.
 
 ## Decisions already made — ask before changing
 
